@@ -8,12 +8,12 @@ import timm
 import torch
 from datasets import load_dataset
 from hydra.core.config_store import ConfigStore
-from hydra.utils import instantiate
 from hydra_zen import (
     builds,
     hydrated_dataclass,
     make_config,
     ZenField,
+    instantiate,
 )
 from rich import print
 from torch import nn
