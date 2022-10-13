@@ -72,7 +72,7 @@ class AdamWOptimizerConfig:
 
 @hydrated_dataclass(target=torch.optim.lr_scheduler.LinearLR)
 class LinearAnnealingSchedulerConfig:
-    optim: torch.optim.Optimizer
+    optimizer: torch.optim.Optimizer
     start_factor: float
     total_iters: int
 
@@ -204,7 +204,7 @@ def run(cfg: Any) -> None:
     dataset: Dataset = instantiate(cfg.datamodule)
     optimizer: torch.optim.Optimizer = instantiate(cfg.optimizer)
     scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = instantiate(
-        cfg.scheduler, optim=optimizer
+        cfg.scheduler, optimizer=optimizer
     )
     training_args: TrainingArguments = instantiate(cfg.training_args)
     trainer: Trainer = Trainer(
