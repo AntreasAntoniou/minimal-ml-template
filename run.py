@@ -181,8 +181,8 @@ def collect_config_store():
         save_steps=1000,
         save_strategy="steps",
         save_total_limit=10,
-        bf16=True,
-        fp16=False,
+        bf16=False,
+        fp16=True,
     )
     config_store.store(
         group="training_args", name="default", node=default_training_args
