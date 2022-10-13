@@ -14,6 +14,7 @@ from hydra_zen import (
     make_config,
     ZenField,
     instantiate,
+    just,
 )
 from rich import print
 from torch import nn
@@ -81,9 +82,7 @@ build_model_config = builds(build_model, populate_full_signature=True)
 
 build_dataset_config = builds(build_dataset, populate_full_signature=True)
 
-trainer_args = builds(TrainingArguments)
-
-trainer_config = builds(Trainer)
+trainer_args = just(TrainingArguments)
 
 
 @dataclass
