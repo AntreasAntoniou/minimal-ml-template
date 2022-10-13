@@ -94,7 +94,6 @@ class BaseConfig:
     datamodule: Any = build_dataset_config
     optimizer: Any = AdamWOptimizerConfig
     scheduler: Any = None
-    trainer: Any = trainer_config
 
     resume: bool = False
     resume_from_checkpoint: Optional[int] = None
