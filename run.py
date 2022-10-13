@@ -183,6 +183,7 @@ def collect_config_store():
         save_total_limit=10,
         bf16=False,
         fp16=True,
+        tf32=False,
     )
     config_store.store(
         group="training_args", name="default", node=default_training_args
