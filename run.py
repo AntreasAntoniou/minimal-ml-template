@@ -130,7 +130,7 @@ def collect_config_store():
     )
 
     tiny_imagenet_config = build_dataset_config(
-        dataset_name="tiny_imagenet", data_dir=DATASET_DIR, batch_size=128
+        dataset_name="tiny_imagenet", data_dir=DATASET_DIR
     )
 
     zen_config = [
