@@ -164,7 +164,7 @@ def collect_config_store():
     )
 
     default_training_args = trainer_args(
-        evaluation_strategy="steps",
+        evaluation_strategy="STEPS",
         eval_steps=1000,
         logging_strategy="steps",
         logging_steps=1000,
