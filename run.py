@@ -163,8 +163,8 @@ def collect_config_store():
         group="scheduler", name="linear-annealing", node=AdamWOptimizerConfig
     )
 
-    default_training_args = trainer_args(
-        evaluation_strategy="STEPS",
+    default_training_args = TrainingArguments(
+        evaluation_strategy="steps",
         eval_steps=1000,
         logging_strategy="steps",
         logging_steps=1000,
