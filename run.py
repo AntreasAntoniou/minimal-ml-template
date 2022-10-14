@@ -82,7 +82,7 @@ build_model_config = builds(build_model, populate_full_signature=True)
 
 build_dataset_config = builds(build_dataset, populate_full_signature=True)
 
-trainer_args = builds(TrainingArguments, populate_full_signature=True)
+trainer_args = builds(TrainingArguments, populate_full_signature=False)
 
 
 @dataclass
