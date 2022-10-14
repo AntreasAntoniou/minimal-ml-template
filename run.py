@@ -164,9 +164,9 @@ def collect_config_store():
     )
 
     default_training_args = trainer_args(
-        evaluation_strategy="steps",
+        evaluation_strategy="STEPS",
         eval_steps=1000,
-        logging_strategy="steps",
+        logging_strategy="STEPS",
         logging_steps=1000,
         output_dir=EXPERIMENT_DIR,
         do_train=True,
@@ -177,9 +177,9 @@ def collect_config_store():
         max_steps=10000,
         seed=SEED,
         data_seed=SEED,
-        log_level="info",
+        log_level="INFO",
         save_steps=1000,
-        save_strategy="steps",
+        save_strategy="STEPS",
         save_total_limit=10,
         bf16=False,
         fp16=True,
