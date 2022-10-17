@@ -1,7 +1,7 @@
 import multiprocessing
 import os
 from dataclasses import dataclass, MISSING
-from typing import Any, Optional
+from typing import Any, Optional, Callable, Dict
 
 import hydra
 import timm
@@ -14,11 +14,14 @@ from hydra_zen import (
     make_config,
     ZenField,
     instantiate,
-    just,
 )
 from rich import print
+from timm.data import resolve_data_config
+from timm.data.transforms_factory import create_transform
 from torch import nn
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import Dataset
+from torchvision import transforms
+from torchvision.transforms import ToTensor
 from transformers import Trainer, TrainingArguments
 
 from utils import get_logger, pretty_config
@@ -26,6 +29,12 @@ from utils import get_logger, pretty_config
 os.environ["HYDRA_FULL_ERROR"] = "1"
 
 logger = get_logger(__name__, set_default_rich_handler=True)
+
+
+@dataclass
+class ModelAndTransform:
+    model: nn.Module
+    transform: Any
 
 
 # Using hydra might look a bit more verbose but it saves having to manually define
@@ -40,7 +49,34 @@ def build_model(
     model = timm.create_model(
         model_name, pretrained=pretrained, num_classes=num_classes, in_chans=in_chans
     )
-    return model
+
+    config = resolve_data_config({}, model=model)
+    transform = create_transform(**config)
+
+    class Convert1ChannelTo3Channel(nn.Module):
+        def __init__(self):
+            super().__init__()
+
+        def forward(self, x):
+
+            if x.shape[0] == 1:
+                x = x.repeat([3, 1, 1])
+            return x
+
+    transform.transforms[-2] = transforms.Compose(
+        [ToTensor(), Convert1ChannelTo3Channel()]
+    )
+
+    def transform_wrapper(input_dict: Dict):
+        input_dict["image"] = torch.stack(
+            [transform(input_dict["image"][i]) for i in range(len(input_dict["image"]))]
+        )
+        input_dict["labels"] = torch.tensor(input_dict["labels"])
+        print(input_dict["image"].shape, input_dict["labels"].shape)
+
+        return dict(x=input_dict["image"], y=input_dict["labels"])
+
+    return ModelAndTransform(model=model, transform=transform_wrapper)
 
 
 def build_dataset(
@@ -49,15 +85,15 @@ def build_dataset(
     sets_to_include=None,
 ):
     if sets_to_include is None:
-        sets_to_include = ["train", "val", "test"]
+        sets_to_include = ["train", "valid"]
 
     dataset = dict()
     for set_name in sets_to_include:
         data = load_dataset(
             path=dataset_name,
             split=set_name,
-            download=True,
             cache_dir=data_dir,
+            task="image-classification",
         )
         dataset[set_name] = data
 
@@ -73,27 +109,29 @@ class AdamWOptimizerConfig:
 
 @hydrated_dataclass(target=torch.optim.lr_scheduler.LinearLR)
 class LinearAnnealingSchedulerConfig:
-    optimizer: torch.optim.Optimizer
-    start_factor: float
     total_iters: int
+    optimizer: Optional[Any] = None
+    start_factor: float = 0.1
 
 
 build_model_config = builds(build_model, populate_full_signature=True)
 
 build_dataset_config = builds(build_dataset, populate_full_signature=True)
 
-trainer_args = builds(TrainingArguments, populate_full_signature=False)
+trainer_args_config = builds(TrainingArguments, populate_full_signature=True)
 
 
 @dataclass
 class BaseConfig:
     exp_name: str
-    seed: int = 42
 
-    model: Any = build_model
-    datamodule: Any = build_dataset_config
-    optimizer: Any = AdamWOptimizerConfig
-    scheduler: Any = None
+    model: Any
+    datamodule: Any
+    optimizer: Any
+    scheduler: Any
+    training_args: Any
+
+    seed: int = 42
 
     resume: bool = False
     resume_from_checkpoint: Optional[int] = None
@@ -119,6 +157,7 @@ def collect_config_store():
     DATASET_DIR = "${data_dir}"
     EXPERIMENTS_ROOT_DIR = "${root_experiment_dir}"
     EXPERIMENT_DIR = "${current_experiment_dir}"
+    TOTAL_STEPS = "${training_args.max_steps}"
     SEED = "${seed}"
 
     config_store = ConfigStore.instance()
@@ -128,21 +167,9 @@ def collect_config_store():
     )
 
     tiny_imagenet_config = build_dataset_config(
-        dataset_name="tiny_imagenet", data_dir=DATASET_DIR
+        dataset_name="Maysee/tiny-imagenet", data_dir=DATASET_DIR
     )
 
-    zen_config = [
-        ZenField(name=value.name, hint=value.type, default=value.default)
-        if value.default is not MISSING
-        else ZenField(name=value.name, hint=value.type)
-        for key, value in BaseConfig.__dict__["__dataclass_fields__"].items()
-    ]
-
-    config = make_config(
-        *zen_config,
-    )
-    # Config
-    config_store.store(name="config", node=config)
     ###################################################################################
 
     config_store.store(
@@ -160,10 +187,12 @@ def collect_config_store():
     config_store.store(group="optimizer", name="adamw", node=AdamWOptimizerConfig)
 
     config_store.store(
-        group="scheduler", name="linear-annealing", node=AdamWOptimizerConfig
+        group="scheduler",
+        name="linear-annealing",
+        node=LinearAnnealingSchedulerConfig(start_factor=0.1, total_iters=TOTAL_STEPS),
     )
 
-    default_training_args = trainer_args(
+    default_training_args = trainer_args_config(
         evaluation_strategy="STEPS",
         eval_steps=1000,
         logging_strategy="STEPS",
@@ -177,17 +206,42 @@ def collect_config_store():
         max_steps=10000,
         seed=SEED,
         data_seed=SEED,
-        log_level="INFO",
+        log_level="info",
         save_steps=1000,
         save_strategy="STEPS",
         save_total_limit=10,
         bf16=False,
         fp16=True,
         tf32=False,
+        lr_scheduler_type="LINEAR",
+        optim="ADAMW_HF",
+        hub_strategy="EVERY_SAVE",
+        remove_unused_columns=False,
     )
     config_store.store(
         group="training_args", name="default", node=default_training_args
     )
+
+    zen_config = [
+        ZenField(name=value.name, hint=value.type, default=value.default)
+        if value.default is not MISSING
+        else ZenField(name=value.name, hint=value.type)
+        for key, value in BaseConfig.__dict__["__dataclass_fields__"].items()
+    ]
+
+    config = make_config(
+        *zen_config,
+        hydra_defaults=[
+            "_self_",
+            {"training_args": "default"},
+            {"optimizer": "adamw"},
+            {"scheduler": "linear-annealing"},
+            {"model": "vit_base_patch16_224"},
+            {"datamodule": "tiny_imagenet"},
+        ]
+    )
+    # Config
+    config_store.store(name="config", node=config)
 
     return config_store
 
@@ -199,9 +253,20 @@ config_store = collect_config_store()
 def run(cfg: Any) -> None:
     print(pretty_config(cfg, resolve=True))
 
-    model: nn.Module = instantiate(cfg.model)
+    model_and_transform: ModelAndTransform = instantiate(cfg.model)
+    model: nn.Module = model_and_transform.model
+    transform: Callable = model_and_transform.transform
+
     dataset: Dataset = instantiate(cfg.datamodule)
-    optimizer: torch.optim.Optimizer = instantiate(cfg.optimizer)
+    train_dataset: Dataset = dataset["train"]
+    val_dataset: Dataset = dataset["valid"]
+
+    train_dataset.set_transform(transform)
+    val_dataset.set_transform(transform)
+
+    optimizer: torch.optim.Optimizer = instantiate(
+        cfg.optimizer, params=model.parameters()
+    )
     scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = instantiate(
         cfg.scheduler, optimizer=optimizer
     )
@@ -210,14 +275,14 @@ def run(cfg: Any) -> None:
         model=model,
         args=training_args,
         train_dataset=dataset["train"],
-        eval_dataset=dataset["val"],
+        eval_dataset=dataset["valid"],
         optimizers=(optimizer, scheduler),
     )
 
     checkpoint_filepath = None
 
     train_results = trainer.train(resume_from_checkpoint=checkpoint_filepath)
-    test_results = trainer.evaluate(eval_dataset=dataset["test"])
+    # test_results = trainer.evaluate(eval_dataset=dataset["test"])
 
 
 if __name__ == "__main__":
