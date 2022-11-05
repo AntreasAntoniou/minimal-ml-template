@@ -3,4 +3,5 @@
 3. Build container automatically using VS code
 4. run huggingface-cli login
 5. copy token from website
-6. 
+6. mamba install -c conda-forge git-lfs
+7. git lfd install
