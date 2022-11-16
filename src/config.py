@@ -241,7 +241,7 @@ def collect_config_store():
     vit_model_config = model_config(
         model_name="google/vit-base-patch16-224-in21k",
         pretrained=True,
-        num_classes=1000,
+        num_classes=101,
     )
 
     tiny_imagenet_config = dataset_config(dataset_name="food101", data_dir=DATASET_DIR)

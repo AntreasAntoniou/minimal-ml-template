@@ -59,10 +59,7 @@ def instantiate_callbacks(callback_dict: dict, config: BaseConfig) -> List[Callb
     return callbacks
 
 
-@hydra.main(config_path=None, config_name="config", version_base=None)
-def run(cfg: BaseConfig) -> None:
-    print(pretty_config(cfg, resolve=True))
-
+def create_hf_model_repo_and_download_maybe(cfg: BaseConfig):
     repo_path = cfg.repo_path
 
     create_repo(repo_path, repo_type="model", exist_ok=True)
@@ -82,6 +79,8 @@ def run(cfg: BaseConfig) -> None:
     if not pathlib.Path(cfg.current_experiment_dir).exists():
         pathlib.Path(cfg.current_experiment_dir).mkdir(parents=True, exist_ok=True)
 
+    download_success = False
+
     try:
         hf_hub_download(
             repo_id=cfg.exp_name,
@@ -89,10 +88,20 @@ def run(cfg: BaseConfig) -> None:
             resume_download=True,
             filename="last.ckpt",
         )
+        download_success = True
+        return repo, download_success
     except Exception as e:
         logger.exception(
             f"Could not download checkpoint_latest.pt from huggingface hub: {e}"
         )
+        return repo, download_success
+
+
+@hydra.main(config_path=None, config_name="config", version_base=None)
+def run(cfg: BaseConfig) -> None:
+    print(pretty_config(cfg, resolve=True))
+
+    repo, download_success = create_hf_model_repo_and_download_maybe(cfg)
 
     model_and_transform: ModelAndTransform = instantiate(cfg.model)
     model: nn.Module = model_and_transform.model
@@ -101,12 +110,15 @@ def run(cfg: BaseConfig) -> None:
     dataset: Dataset = instantiate(cfg.dataset)
     train_dataset: Dataset = dataset["train"]
     val_dataset: Dataset = dataset["validation"]
+    test_dataset: Dataset = dataset["validation"]
 
     train_dataset.set_transform(transform)
     val_dataset.set_transform(transform)
+    test_dataset.set_transform(transform)
 
     train_dataloader = instantiate(cfg.dataloader, dataset=train_dataset, shuffle=True)
     val_dataloader = instantiate(cfg.dataloader, dataset=val_dataset, shuffle=False)
+    test_dataloader = instantiate(cfg.dataloader, dataset=test_dataset, shuffle=False)
 
     optimizer: torch.optim.Optimizer = instantiate(
         cfg.optimizer, params=model.parameters(), _partial_=False
@@ -139,7 +151,7 @@ def run(cfg: BaseConfig) -> None:
     checkpoint_filepath = None
 
     if cfg.resume:
-        checkpoint_filepath = pathlib.Path(repo.local_dir / "latest.pt")
+        checkpoint_filepath = pathlib.Path(repo.local_dir / "last.ckpt")
 
         if checkpoint_filepath.exists():
             logger.info(f"Resuming from checkpoint: {checkpoint_filepath}")
@@ -154,7 +166,7 @@ def run(cfg: BaseConfig) -> None:
     )
     test_results = trainer.test(
         model=lightning_model,
-        data_loaders=val_dataloader,
+        data_loaders=test_dataloader,
         ckpt_path=trainer.checkpoint_callback.best_model_path,
     )
 
