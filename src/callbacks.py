@@ -64,6 +64,27 @@ class UploadCodeAsArtifact(Callback):
         experiment.log_artifact(code)
 
 
+class UploadCheckpointsToHuggingFace(Callback):
+    def __init__(self, repo_name: str, repo_owner: str, folder_to_upload: str):
+        from huggingface_hub import hf_hub_download, Repository, upload_folder, HfApi
+
+        super().__init__()
+        self.repo_name = repo_name
+        self.repo_owner = repo_owner
+        self.folder_to_upload = folder_to_upload
+        self.hf_api = HfApi()
+
+    def on_save_checkpoint(
+        self,
+        trainer: Trainer,
+        pl_module: LightningModule,
+        checkpoint: Dict[str, Any],
+    ) -> Optional[dict]:
+        self.hf_api.upload_folder(
+            repo_id=f"{self.repo_owner}/{self.repo_name}", path=self.folder_to_upload
+        )
+
+
 class LogConfigInformation(Callback):
     """Logs a validation batch and their predictions to wandb.
     Example adapted from:

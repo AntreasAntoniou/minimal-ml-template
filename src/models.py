@@ -13,19 +13,20 @@ class ModelAndTransform:
 
 
 def build_model(
-    model_name: str = "vit_base_patch16_224",
+    model_name: str = "google/vit-base-patch16-224-in21k",
     pretrained: bool = True,
     num_classes: int = 100,
-    in_chans: int = 3,
 ):
     from transformers import ViTFeatureExtractor, ViTForImageClassification
 
-    feature_extractor = ViTFeatureExtractor.from_pretrained(
-        "google/vit-base-patch16-224-in21k"
+    feature_extractor = ViTFeatureExtractor.from_pretrained(model_name)
+    model: nn.Module = ViTForImageClassification.from_pretrained(
+        model_name, num_labels=num_classes
     )
-    model = ViTForImageClassification.from_pretrained(
-        "google/vit-base-patch16-224-in21k", num_labels=num_classes
-    )
+
+    if pretrained:
+        model.init_weights()
+
     transform = lambda image: feature_extractor(images=image, return_tensors="pt")
 
     class Convert1ChannelTo3Channel(nn.Module):

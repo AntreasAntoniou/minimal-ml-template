@@ -1,34 +1,32 @@
-from dataclasses import dataclass, field
 import multiprocessing
 import os
-from typing import Any, List, Optional, Union
-from .callbacks import LogConfigInformation, UploadCodeAsArtifact
-from pytorch_lightning import Trainer
-import torch
-from hydra_zen import MISSING, ZenField, builds, make_config
-from hydra.core.config_store import ConfigStore
-
-from .data import build_dataset
-from .models import build_model
-
-from torch.utils.data import DataLoader
-
-from dataclasses import MISSING, dataclass
+from dataclasses import MISSING, dataclass, field
 from datetime import timedelta
-from typing import Dict, Optional
+from typing import Any, Dict, List, Optional, Union
 
-from hydra_zen import builds, hydrated_dataclass
+import torch
+from hydra.core.config_store import ConfigStore
+from hydra_zen import MISSING, ZenField, builds, hydrated_dataclass, make_config
 from pytorch_lightning import Callback, LightningModule, Trainer
-from pytorch_lightning.callbacks import RichModelSummary
-from pytorch_lightning.loggers import LoggerCollection, WandbLogger, TensorBoardLogger
-
 from pytorch_lightning.callbacks import (
     LearningRateMonitor,
     ModelCheckpoint,
+    RichModelSummary,
     TQDMProgressBar,
 )
+from pytorch_lightning.loggers import LoggerCollection, TensorBoardLogger, WandbLogger
+from torch.utils.data import DataLoader
+
+from .callbacks import (
+    LogConfigInformation,
+    UploadCheckpointsToHuggingFace,
+    UploadCodeAsArtifact,
+)
+from .data import build_dataset
+from .models import build_model
 
 CHECKPOINT_DIR = "${hf_repo_dir}"
+HF_USERNAME = "${hf_username}"
 CODE_DIR = "${code_dir}"
 DATASET_DIR = "${data_dir}"
 EXPERIMENT_NAME = "${exp_name}"
@@ -105,6 +103,9 @@ class LogConfigInformationConfig:
     exp_config: Optional[Dict] = None
 
 
+HFModelUploadConfig = builds(
+    UploadCheckpointsToHuggingFace, populate_full_signature=True
+)
 ModelSummaryConfig = builds(RichModelSummary, max_depth=7)
 
 
@@ -138,6 +139,11 @@ base_callbacks = dict(
     model_summary=ModelSummaryConfig(),
     progress_bar=RichProgressBar(),
     lr_monitor=LearningRateMonitorConfig(),
+    model_upload=HFModelUploadConfig(
+        repo_name=EXPERIMENT_NAME,
+        repo_owner=HF_USERNAME,
+        folder_to_upload=CHECKPOINT_DIR,
+    ),
 )
 
 wandb_callbacks = dict(
@@ -146,6 +152,11 @@ wandb_callbacks = dict(
     model_summary=ModelSummaryConfig(),
     progress_bar=RichProgressBar(),
     lr_monitor=LearningRateMonitorConfig(),
+    model_upload=HFModelUploadConfig(
+        repo_name=EXPERIMENT_NAME,
+        repo_owner=HF_USERNAME,
+        folder_to_upload=CHECKPOINT_DIR,
+    ),
     code_upload=UploadCodeAsArtifactConfig(),
     log_config=LogConfigInformationConfig(),
 )
@@ -228,7 +239,9 @@ def collect_config_store():
     config_store = ConfigStore.instance()
     ###################################################################################
     vit_model_config = model_config(
-        model_name="vit_base_patch16_224", pretrained=True, num_classes=1000, in_chans=3
+        model_name="google/vit-base-patch16-224-in21k",
+        pretrained=True,
+        num_classes=1000,
     )
 
     tiny_imagenet_config = dataset_config(dataset_name="food101", data_dir=DATASET_DIR)
@@ -336,24 +349,24 @@ def collect_config_store():
                 root={"handlers": ["rich"], "level": "INFO"},
                 disable_existing_loggers=False,
             ),
-            hydra_logging={
-                "version": 1,
-                "formatters": {
-                    "simple": {
-                        "level": "INFO",
-                        "format": "%(message)s",
-                        "datefmt": "[%X]",
-                    }
-                },
-                "handlers": {
+            hydra_logging=dict(
+                version=1,
+                formatters=dict(
+                    simple=dict(
+                        level="INFO",
+                        format="%(message)s",
+                        datefmt="[%X]",
+                    )
+                ),
+                handlers={
                     "rich": {
                         "class": "rich.logging.RichHandler",
                         "formatter": "simple",
                     }
                 },
-                "root": {"handlers": ["rich"], "level": "INFO"},
-                "disable_existing_loggers": False,
-            },
+                root={"handlers": ["rich"], "level": "INFO"},
+                disable_existing_loggers=False,
+            ),
             run={"dir": "${current_experiment_dir}/hydra-run/${now:%Y-%m-%d_%H-%M-%S}"},
             sweep={
                 "dir": "${current_experiment_dir}/hydra-multirun/${now:%Y-%m-%d_%H-%M-%S}",
@@ -364,7 +377,7 @@ def collect_config_store():
 
     zen_config = []
 
-    for key, value in BaseConfig.__dataclass_fields__.items():
+    for value in BaseConfig.__dataclass_fields__.values():
         item = (
             ZenField(name=value.name, hint=value.type, default=value.default)
             if value.default is not MISSING
@@ -376,15 +389,15 @@ def collect_config_store():
         *zen_config,
         hydra_defaults=[
             "_self_",
-            {"trainer": "default"},
-            {"optimizer": "adamw"},
-            {"scheduler": "linear-annealing"},
-            {"model": "vit_base_patch16_224"},
-            {"dataset": "tiny_imagenet"},
-            {"dataloader": "default"},
-            {"hydra": "custom_logging_path"},
-            {"loggers": "wandb"},
-            {"callbacks": "wandb"},
+            dict(trainer="default"),
+            dict(optimizer="adamw"),
+            dict(scheduler="linear-annealing"),
+            dict(model="vit_base_patch16_224"),
+            dict(dataset="tiny_imagenet"),
+            dict(dataloader="default"),
+            dict(hydra="custom_logging_path"),
+            dict(loggers="wandb"),
+            dict(callbacks="wandb"),
         ],
     )
     # Config

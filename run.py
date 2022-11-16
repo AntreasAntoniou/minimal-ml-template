@@ -152,9 +152,10 @@ def run(cfg: BaseConfig) -> None:
         val_dataloaders=val_dataloader,
         ckpt_path=checkpoint_filepath,
     )
-    best_ckpt = trainer.checkpoint_callback.best_model_path
     test_results = trainer.test(
-        model=lightning_model, data_loaders=val_dataloader, ckpt_path=best_ckpt
+        model=lightning_model,
+        data_loaders=val_dataloader,
+        ckpt_path=trainer.checkpoint_callback.best_model_path,
     )
 
 
