@@ -1,0 +1,101 @@
+exp_name: ???
+hf_username: ???
+model:
+  _target_: src.models.build_model
+  model_name: vit_base_patch16_224
+  pretrained: true
+  num_classes: 1000
+  in_chans: 3
+datamodule:
+  _target_: src.data.build_dataset
+  dataset_name: Maysee/tiny-imagenet
+  data_dir: ${data_dir}
+  sets_to_include: null
+optimizer:
+  _target_: torch.optim.adamw.AdamW
+  _partial_: true
+  lr: 0.001
+  betas:
+  - 0.9
+  - 0.999
+  eps: 1.0e-08
+  weight_decay: 0.01
+  amsgrad: false
+  maximize: false
+  foreach: null
+  capturable: false
+scheduler:
+  _target_: torch.optim.lr_scheduler.LinearLR
+  _partial_: true
+  start_factor: 0.1
+  end_factor: 1.0
+  total_iters: ${trainer.max_steps}
+  last_epoch: -1
+  verbose: false
+trainer:
+  _target_: pytorch_lightning.trainer.trainer.Trainer
+  logger: true
+  enable_checkpointing: true
+  callbacks: null
+  default_root_dir: null
+  gradient_clip_val: null
+  gradient_clip_algorithm: null
+  num_nodes: 1
+  num_processes: null
+  devices: null
+  gpus: null
+  auto_select_gpus: false
+  tpu_cores: null
+  ipus: null
+  enable_progress_bar: true
+  overfit_batches: 0.0
+  track_grad_norm: -1
+  check_val_every_n_epoch: 1
+  fast_dev_run: false
+  accumulate_grad_batches: null
+  max_epochs: null
+  min_epochs: null
+  max_steps: -1
+  min_steps: null
+  max_time: null
+  limit_train_batches: null
+  limit_val_batches: null
+  limit_test_batches: null
+  limit_predict_batches: null
+  val_check_interval: null
+  log_every_n_steps: 50
+  accelerator: null
+  strategy: null
+  sync_batchnorm: false
+  precision: 32
+  enable_model_summary: true
+  weights_save_path: null
+  num_sanity_val_steps: 2
+  resume_from_checkpoint: null
+  profiler: null
+  benchmark: null
+  deterministic: null
+  reload_dataloaders_every_n_epochs: 0
+  auto_lr_find: false
+  replace_sampler_ddp: true
+  detect_anomaly: false
+  auto_scale_batch_size: false
+  plugins: null
+  amp_backend: native
+  amp_level: null
+  move_metrics_to_cpu: false
+  multiple_trainloader_mode: max_size_cycle
+callbacks: ???
+loggers: ???
+seed: 42
+resume: false
+resume_from_checkpoint: null
+print_config: false
+batch_size: 16
+num_workers: 16
+root_experiment_dir: /data/experiments
+data_dir: /data
+current_experiment_dir: ${root_experiment_dir}/${exp_name}
+repo_path: ${hf_username}/${exp_name}
+hf_repo_dir: ${current_experiment_dir}/hf_repo
+code_dir: ${hydra:runtime.cwd}

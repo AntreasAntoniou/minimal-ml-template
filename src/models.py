@@ -1,0 +1,62 @@
+import copy
+from dataclasses import dataclass
+from typing import Any, Dict
+import torch.nn as nn
+from torchvision import transforms
+from torchvision.transforms import ToTensor
+
+
+@dataclass
+class ModelAndTransform:
+    model: nn.Module
+    transform: Any
+
+
+def build_model(
+    model_name: str = "vit_base_patch16_224",
+    pretrained: bool = True,
+    num_classes: int = 100,
+    in_chans: int = 3,
+):
+    from transformers import ViTFeatureExtractor, ViTForImageClassification
+
+    feature_extractor = ViTFeatureExtractor.from_pretrained(
+        "google/vit-base-patch16-224-in21k"
+    )
+    model = ViTForImageClassification.from_pretrained(
+        "google/vit-base-patch16-224-in21k", num_labels=num_classes
+    )
+    transform = lambda image: feature_extractor(images=image, return_tensors="pt")
+
+    class Convert1ChannelTo3Channel(nn.Module):
+        def __init__(self):
+            super().__init__()
+
+        def forward(self, x):
+            temp = None
+            if hasattr(x, "pixel_values"):
+                temp = copy.copy(x)
+                x = x["pixel_values"]
+            x = ToTensor()(x)
+            if len(x.shape) == 3 and x.shape[0] == 1:
+                x = x.repeat([3, 1, 1])
+            elif len(x.shape) == 4 and x.shape[1] == 1:
+                x = x.repeat([1, 3, 1, 1])
+
+            if temp is not None:
+                temp["pixel_values"] = x
+                x = temp
+
+            return x
+
+    pre_transform = Convert1ChannelTo3Channel()
+
+    def transform_wrapper(input_dict: Dict):
+        input_dict["image"][0] = pre_transform(input_dict["image"][0])
+
+        return {
+            "pixel_values": transform(input_dict["image"])["pixel_values"],
+            "labels": input_dict["labels"],
+        }
+
+    return ModelAndTransform(model=model, transform=transform_wrapper)
