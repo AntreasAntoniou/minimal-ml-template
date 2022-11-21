@@ -10,7 +10,7 @@
           "bash": {
             "path": "/bin/bash"
           }
-        },  
+        },
         "ai-docstring.docstringFormat": "sphinx",
         "ai-docstring.logLevel": "Debug",
         "editor.formatOnSave": true,
@@ -23,7 +23,7 @@
         "git.autofetch": true,
         "git.confirmSync": false,
         "git.enableSmartCommit": true,
-        "github.copilot.enable": {"*": true},
+        "github.copilot.enable": { "*": true },
         "gitlens.codeLens.enabled": false,
         "gitlens.currentLine.enabled": false,
         "gitlens.hovers.currentLine.over": "line",

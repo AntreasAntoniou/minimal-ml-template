@@ -1,5 +1,5 @@
 import os
-from src.lightning import TrainingEvaluationAgent
+from mlproject.lightning import TrainingEvaluationAgent
 from rich import print
 from rich.traceback import install
 import dotenv
@@ -31,10 +31,9 @@ from pytorch_lightning.loggers import LightningLoggerBase
 from torch import nn
 from torch.utils.data import Dataset
 
-from src.config import BaseConfig, collect_config_store
-from src.models import ModelAndTransform
-from src.utils import get_logger, pretty_config
-
+from mlproject.config import BaseConfig, collect_config_store
+from mlproject.models import ModelAndTransform
+from mlproject.utils import get_logger, pretty_config
 
 config_store = collect_config_store()
 
