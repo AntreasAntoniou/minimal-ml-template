@@ -19,6 +19,11 @@ def get_dict_shapes(x):
     }
 
 
+class Trainer(object):
+    def __init__(self):
+        pass
+
+
 class TrainingEvaluationAgent(LightningModule):
     def __init__(
         self,

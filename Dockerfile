@@ -2,9 +2,7 @@ FROM ghcr.io/bayeswatch/bwatch-tutorial:latest
 
 RUN apt update
 RUN apt install aptitude tree -y
-RUN apt install fish -y
 RUN echo yes | pip install tabulate nvitop hydra_zen
-RUN mamba install -c conda-forge starship jupyterlab black -y
 
 RUN git lfs install
 RUN git config --global credential.helper store

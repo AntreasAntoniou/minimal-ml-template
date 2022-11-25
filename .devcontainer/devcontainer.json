@@ -1,6 +1,6 @@
 {
   "build": { "dockerfile": "Dockerfile" },
-  "runArgs": ["--gpus", "all", "-P", "--shm-size=48gb"],
+  "runArgs": ["--gpus", "all", "-P", "--shm-size=30gb"],
   "customizations": {
     // Configure properties specific to VS Code.
     "vscode": {
@@ -36,9 +36,7 @@
         "python.analysis.autoImportCompletions": true,
         "python.analysis.autoSearchPaths": true,
         "python.analysis.indexing": true,
-        "python.defaultInterpreterPath": "/opt/conda/envs/tali-collector/bin/python",
         "python.formatting.blackArgs": ["-l 88"],
-        "python.formatting.blackPath": "/opt/conda/envs/tali-collector/bin/black",
         "python.formatting.provider": "black",
         "python.languageServer": "Default",
         "redhat.telemetry.enabled": true,
