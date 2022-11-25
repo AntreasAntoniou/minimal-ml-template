@@ -1,5 +1,5 @@
 import os
-from mlproject.lightning import TrainingEvaluationAgent
+from mlproject.trainers import TrainingEvaluationAgent
 from rich import print
 from rich.traceback import install
 import dotenv
@@ -26,8 +26,6 @@ import torch
 from huggingface_hub import Repository, create_repo, hf_hub_download
 from hydra_zen import instantiate
 from omegaconf import OmegaConf
-from pytorch_lightning import Callback, Trainer
-from pytorch_lightning.loggers import LightningLoggerBase
 from torch import nn
 from torch.utils.data import Dataset
 
