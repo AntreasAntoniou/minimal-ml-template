@@ -1,7 +1,9 @@
 import functools
+from functools import wraps
 from typing import Callable
 from hydra_zen import builds, instantiate
 from prometheus_client import Metric
+import wandb
 
 
 def configurable(func: Callable) -> Callable:
@@ -15,32 +17,43 @@ def check_if_configurable(func: Callable, phase_name: str) -> bool:
 
 
 def collect_metrics(func: Callable) -> Callable:
-    def collect_metrics(pl_module, metrics_dict, phase_name) -> None:
+    def collect_metrics(step_idx: int, metrics_dict: dict(), phase_name: str) -> None:
         for metric_key, computed_value in metrics_dict.items():
-
             if computed_value is not None:
-                pl_module.log(
-                    name=f"{phase_name}/{metric_key}",
-                    value=computed_value.detach(),
-                    prog_bar="opt_loss" in metric_key,
-                    logger=True,
-                    on_step=True,
-                    on_epoch=True,
-                    sync_dist=True,
+                wandb.log(
+                    {f"{phase_name}/{metric_key}": computed_value.detach()},
+                    step=step_idx,
                 )
 
     @functools.wraps(func)
     def wrapper_collect_metrics(*args, **kwargs):
-        pl_module = args[0]
         outputs = func(*args, **kwargs)
-        metrics_dict = outputs["metrics"]
-        phase_name = outputs["phase_name"]
+        metrics_dict = outputs.metrics
+        phase_name = outputs.phase_name
+        step_idx = outputs.step_idx
         collect_metrics(
-            pl_module=pl_module, metrics_dict=metrics_dict, phase_name=phase_name
+            step_idx=step_idx, metrics_dict=metrics_dict, phase_name=phase_name
         )
         return outputs
 
     return wrapper_collect_metrics
+
+
+# def create_decorator(
+#     trigger_callback_signatures_before, trigger_callback_signatures_before
+# ):
+#     def decorator(function):
+#         @wraps(function)
+#         def wrapper(*args, **kwargs):
+#             funny_stuff()
+#             something_with_argument(argument)
+#             retval = function(*args, **kwargs)
+#             more_funny_stuff()
+#             return retval
+
+#         return wrapper
+
+#     return decorator
 
 
 def test_wrapper(phase_name: str):

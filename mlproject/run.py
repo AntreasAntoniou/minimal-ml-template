@@ -1,5 +1,4 @@
 import os
-from mlproject.trainers import TrainingEvaluationAgent
 from rich import print
 from rich.traceback import install
 import dotenv
@@ -29,6 +28,7 @@ from omegaconf import OmegaConf
 from torch import nn
 from torch.utils.data import Dataset
 
+from mlproject.trainers import TrainingEvaluationAgent
 from mlproject.config import BaseConfig, collect_config_store
 from mlproject.models import ModelAndTransform
 from mlproject.utils import get_logger, pretty_config

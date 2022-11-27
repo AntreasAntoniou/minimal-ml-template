@@ -1,9 +1,13 @@
+from ast import Dict
+from dataclasses import dataclass
 from typing import Any, Iterator, Tuple
+
+from attr import field
 from .decorators import collect_metrics
 
 import torch
+import torch.nn.functional as F
 from hydra_zen import instantiate
-from pytorch_lightning import LightningDataModule, LightningModule
 from .utils import get_logger
 
 
@@ -24,80 +28,37 @@ class Evaluator(object):
         pass
 
 
-class TrainingEvaluationAgent(LightningModule):
-    def __init__(
-        self,
-        model: torch.nn.Module,
-        optimizer: torch.optim.Optimizer,
-        scheduler: torch.optim.lr_scheduler._LRScheduler = None,
-        fine_tunable: bool = False,
-    ):
+@dataclass
+class EvaluatorOutput:
+    step_idx: int
+    metrics: Dict
+    phase_name: str
+
+
+class ClassificationEvaluator(Evaluator):
+    def __init__(self):
         super().__init__()
-        self.model = model
-        self.optimizer = optimizer
-        self.scheduler = scheduler
-        self.fine_tunable = fine_tunable
-
-    def forward(self, batch):
-        return self.model.forward(**batch)
 
     @collect_metrics
-    def training_step(self, batch, batch_idx):
-        outputs = self.forward(batch)
-        logits = outputs.logits
+    def validation_step(self, model, batch, batch_idx, step_idx):
+        logits = model(batch["pixel_values"])
         accuracy = (logits.argmax(dim=-1) == batch["labels"]).float().mean()
-        loss = outputs["loss"].detach()
-        opt_loss = outputs["loss"]
+        loss = F.cross_entropy(logits, batch["labels"]).detach()
 
-        return dict(
-            phase_name="training",
-            loss=opt_loss,
-            metrics={"accuracy": accuracy, "loss": loss},
-        )
-
-    @collect_metrics
-    def validation_step(self, batch, batch_idx):
-        outputs = self.forward(batch)
-        logits = outputs.logits
-        accuracy = (logits.argmax(dim=-1) == batch["labels"]).float().mean()
-        loss = outputs["loss"].detach()
-
-        return dict(
+        return EvaluatorOutput(
+            step_idx=step_idx,
             phase_name="validation",
             metrics={"accuracy": accuracy, "loss": loss},
         )
 
     @collect_metrics
-    def test_step(self, batch, batch_idx):
-        outputs = self.forward(batch)
-        logits = outputs.logits
+    def test_step(self, model, batch, batch_idx, step_idx):
+        logits = model(batch["pixel_values"])
         accuracy = (logits.argmax(dim=-1) == batch["labels"]).float().mean()
-        loss = outputs["loss"].detach()
+        loss = F.cross_entropy(logits, batch["labels"]).detach()
 
-        return dict(phase_name="test", metrics={"accuracy": accuracy, "loss": loss})
-
-    def parameters(self):
-        if self.fine_tunable:
-            return self.model.parameters()
-        else:
-            return self.model.classifier.parameters()
-
-    def named_parameters(self) -> Iterator[Tuple[str, torch.Tensor]]:
-        if self.fine_tunable:
-            return self.model.named_parameters()
-        else:
-            return self.model.classifier.named_parameters()
-
-    def configure_optimizers(self) -> torch.optim.Optimizer:
-        for key, value in self.named_parameters():
-            logger.info(
-                f"Parameter {key} -> {value.shape} requires grad {value.requires_grad}"
-            )
-        if self.scheduler is not None:
-            return dict(
-                optimizer=self.optimizer,
-                lr_scheduler_config=dict(
-                    scheduler=self.scheduler, interval="step", monitor="validation_loss"
-                ),
-            )
-        return self.optimizer
+        return EvaluatorOutput(
+            step_idx=step_idx,
+            phase_name="test",
+            metrics={"accuracy": accuracy, "loss": loss},
+        )

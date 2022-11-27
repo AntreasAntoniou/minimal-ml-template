@@ -1,9 +1,13 @@
-from typing import Any, Iterator, Tuple
+from dataclasses import dataclass, field
+from typing import Any, Dict, Iterator, Tuple
+
+from mlproject.callbacks import Interval
+
 from .decorators import collect_metrics
 
 import torch
+import torch.nn.functional as F
 from hydra_zen import instantiate
-from pytorch_lightning import LightningDataModule, LightningModule
 from .utils import get_logger
 
 
@@ -23,81 +27,53 @@ class Trainer(object):
     def __init__(self):
         pass
 
+@dataclass
+class TrainerOutput:
+    opt_loss: torch.Tensor
+    step_idx: int
+    metrics: Dict[str, Any]
+    phase_name: str 
 
-class TrainingEvaluationAgent(LightningModule):
+class ClassificationTrainer(Trainer):
     def __init__(
         self,
-        model: torch.nn.Module,
         optimizer: torch.optim.Optimizer,
         scheduler: torch.optim.lr_scheduler._LRScheduler = None,
+        scheduler_interval: str = Interval.STEP,
         fine_tunable: bool = False,
     ):
         super().__init__()
-        self.model = model
         self.optimizer = optimizer
         self.scheduler = scheduler
         self.fine_tunable = fine_tunable
 
-    def forward(self, batch):
-        return self.model.forward(**batch)
-
-    @collect_metrics
-    def training_step(self, batch, batch_idx):
-        outputs = self.forward(batch)
-        logits = outputs.logits
-        accuracy = (logits.argmax(dim=-1) == batch["labels"]).float().mean()
-        loss = outputs["loss"].detach()
-        opt_loss = outputs["loss"]
-
-        return dict(
-            phase_name="training",
-            loss=opt_loss,
-            metrics={"accuracy": accuracy, "loss": loss},
-        )
-
-    @collect_metrics
-    def validation_step(self, batch, batch_idx):
-        outputs = self.forward(batch)
-        logits = outputs.logits
-        accuracy = (logits.argmax(dim=-1) == batch["labels"]).float().mean()
-        loss = outputs["loss"].detach()
-
-        return dict(
-            phase_name="validation",
-            metrics={"accuracy": accuracy, "loss": loss},
-        )
-
-    @collect_metrics
-    def test_step(self, batch, batch_idx):
-        outputs = self.forward(batch)
-        logits = outputs.logits
-        accuracy = (logits.argmax(dim=-1) == batch["labels"]).float().mean()
-        loss = outputs["loss"].detach()
-
-        return dict(phase_name="test", metrics={"accuracy": accuracy, "loss": loss})
-
-    def parameters(self):
-        if self.fine_tunable:
-            return self.model.parameters()
-        else:
-            return self.model.classifier.parameters()
-
-    def named_parameters(self) -> Iterator[Tuple[str, torch.Tensor]]:
-        if self.fine_tunable:
-            return self.model.named_parameters()
-        else:
-            return self.model.classifier.named_parameters()
-
-    def configure_optimizers(self) -> torch.optim.Optimizer:
-        for key, value in self.named_parameters():
-            logger.info(
-                f"Parameter {key} -> {value.shape} requires grad {value.requires_grad}"
-            )
         if self.scheduler is not None:
-            return dict(
-                optimizer=self.optimizer,
-                lr_scheduler_config=dict(
-                    scheduler=self.scheduler, interval="step", monitor="validation_loss"
-                ),
-            )
+            assert scheduler_interval in {"step", "epoch"}
+            self.scheduler_interval = scheduler_interval    
+
+    def get_optimizer(self):
         return self.optimizer
+    @collect_metrics
+    def training_step(self, model, batch, batch_idx, step_idx) -> TrainerOutput:
+        self.optimizer.zero_grad()
+        logits = model(batch["pixel_values"])
+        accuracy = (logits.argmax(dim=-1) == batch["labels"]).float().mean()
+        opt_loss = F.cross_entropy(logits, batch["labels"])
+        loss = opt_loss.detach()
+        opt_loss.backward()
+        self.optimizer.step()
+        
+        if self.scheduler is not None:
+            if self.scheduler_interval == "step":
+                self.scheduler.step()
+            elif self.scheduler_interval == "epoch" and batch_idx == 0:
+                self.scheduler.step()
+                
+        return TrainerOutput(
+            phase_name="training",
+            opt_loss=opt_loss,
+            step_idx=step_idx,
+            metrics={"accuracy": accuracy, "loss": loss},
+        )
+
+    
