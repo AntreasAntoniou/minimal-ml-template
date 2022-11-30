@@ -3,25 +3,20 @@ import os
 from dataclasses import MISSING, dataclass, field
 from datetime import timedelta
 from typing import Any, Dict, List, Optional, Union
+from omegaconf import OmegaConf
 
 import torch
+import wandb
+import timm
+from timm.scheduler import CosineLRScheduler
 from hydra.core.config_store import ConfigStore
 from hydra_zen import MISSING, ZenField, builds, hydrated_dataclass, make_config
-from pytorch_lightning import Callback, LightningModule, Trainer
-from pytorch_lightning.callbacks import (
-    LearningRateMonitor,
-    ModelCheckpoint,
-    RichModelSummary,
-    TQDMProgressBar,
-)
-from pytorch_lightning.loggers import LoggerCollection, TensorBoardLogger, WandbLogger
 from torch.utils.data import DataLoader
+from accelerate import Accelerator
 
-from .callbacks import (
-    LogConfigInformation,
-    UploadCheckpointsToHuggingFace,
-    UploadCodeAsArtifact,
-)
+from mlproject.boilerplate import Learner
+from mlproject.callbacks import UploadCheckpointsToHuggingFace
+
 from .data import build_dataset
 from .models import build_model
 
@@ -31,35 +26,23 @@ CODE_DIR = "${code_dir}"
 DATASET_DIR = "${data_dir}"
 EXPERIMENT_NAME = "${exp_name}"
 EXPERIMENTS_ROOT_DIR = "${root_experiment_dir}"
-BATCH_SIZE = "${batch_size}"
+TRAIN_BATCH_SIZE = "${train_batch_size}"
 CURRENT_EXPERIMENT_DIR = "${current_experiment_dir}"
-TOTAL_STEPS = "${trainer.max_steps}"
+TRAIN_ITERS = "${learner.train_iters}"
 REPO_PATH = "${repo_path}"
 EXP_NAME = "${exp_name}"
 SEED = "${seed}"
+RESUME = "${resume}"
 
 
-@hydrated_dataclass(target=WandbLogger)
-class WeightsAndBiasesLoggerConfig:
-    id: str = EXPERIMENT_NAME
-    project: str = os.environ["WANDB_PROJECT"]
-    offline: bool = False  # set True to store all logs only locally
-    resume: str = "allow"  # allow, True, False, must
-    save_dir: str = CURRENT_EXPERIMENT_DIR
-    log_model: Union[str, bool] = False
-    prefix: str = ""
-    job_type: str = "train"
-    group: str = ""
-    tags: List[str] = field(default_factory=list)
+wandb_args_config = builds(wandb.init, populate_full_signature=True)
 
-
-@hydrated_dataclass(target=TensorBoardLogger)
-class TensorboardLoggerConfig:
-    save_dir: str = CURRENT_EXPERIMENT_DIR
-    name: str = EXPERIMENT_NAME
-    version: Optional[str] = None
-    log_graph: bool = False
-    default_hp_metric: Optional[bool] = None
+wandb_args_default = wandb_args_config(
+    project=os.environ["WANDB_PROJECT"],
+    resume="allow",  # allow, True, False, must
+    dir=CURRENT_EXPERIMENT_DIR,
+    save_code=True,
+)
 
 
 @hydrated_dataclass(target=timedelta)
@@ -68,99 +51,11 @@ class TimerConfig:
     # minutes: int = 60
 
 
-@hydrated_dataclass(target=ModelCheckpoint)
-class ModelCheckpointingConfig:
-    monitor: str = MISSING
-    mode: str = MISSING
-    save_top_k: int = MISSING
-    save_last: bool = MISSING
-    verbose: bool = MISSING
-    filename: str = MISSING
-    auto_insert_metric_name: bool = MISSING
-    save_on_train_epoch_end: Optional[bool] = None
-    train_time_interval: Optional[TimerConfig] = None
-    dirpath: str = CHECKPOINT_DIR
-
-
-@hydrated_dataclass(target=TQDMProgressBar)
-class RichProgressBar:
-    refresh_rate: int = 1
-    process_position: int = 0
-
-
-@hydrated_dataclass(target=LearningRateMonitor)
-class LearningRateMonitorConfig:
-    logging_interval: str = "step"
-
-
-@hydrated_dataclass(target=UploadCodeAsArtifact)
-class UploadCodeAsArtifactConfig:
-    code_dir: str = "${code_dir}"
-
-
-@hydrated_dataclass(target=LogConfigInformation)
-class LogConfigInformationConfig:
-    exp_config: Optional[Dict] = None
-
-
 HFModelUploadConfig = builds(
     UploadCheckpointsToHuggingFace, populate_full_signature=True
 )
-ModelSummaryConfig = builds(RichModelSummary, max_depth=7)
 
-
-model_checkpoint_eval: ModelCheckpointingConfig = ModelCheckpointingConfig(
-    monitor="validation/accuracy_epoch",
-    mode="max",
-    save_top_k=3,
-    save_last=False,
-    verbose=False,
-    dirpath=CHECKPOINT_DIR,
-    filename="eval_epoch.pt",
-    auto_insert_metric_name=False,
-)
-
-model_checkpoint_train = ModelCheckpointingConfig(
-    monitor="training/loss_epoch",
-    save_on_train_epoch_end=True,
-    save_top_k=0,
-    save_last=True,
-    train_time_interval=TimerConfig(),
-    mode="min",
-    verbose=False,
-    dirpath=CHECKPOINT_DIR,
-    filename="latest.pt",
-    auto_insert_metric_name=False,
-)
-
-base_callbacks = dict(
-    model_checkpoint_eval=model_checkpoint_eval,
-    model_checkpoint_train=model_checkpoint_train,
-    model_summary=ModelSummaryConfig(),
-    progress_bar=RichProgressBar(),
-    lr_monitor=LearningRateMonitorConfig(),
-    model_upload=HFModelUploadConfig(
-        repo_name=EXPERIMENT_NAME,
-        repo_owner=HF_USERNAME,
-        folder_to_upload=CHECKPOINT_DIR,
-    ),
-)
-
-wandb_callbacks = dict(
-    model_checkpoint_eval=model_checkpoint_eval,
-    model_checkpoint_train=model_checkpoint_train,
-    model_summary=ModelSummaryConfig(),
-    progress_bar=RichProgressBar(),
-    lr_monitor=LearningRateMonitorConfig(),
-    model_upload=HFModelUploadConfig(
-        repo_name=EXPERIMENT_NAME,
-        repo_owner=HF_USERNAME,
-        folder_to_upload=CHECKPOINT_DIR,
-    ),
-    code_upload=UploadCodeAsArtifactConfig(),
-    log_config=LogConfigInformationConfig(),
-)
-
+hf_upload = HFModelUploadConfig(repo_name=EXPERIMENT_NAME, repo_owner=HF_USERNAME)
 
 adamw_optimizer_config = builds(
     torch.optim.AdamW,
@@ -169,11 +64,15 @@ adamw_optimizer_config = builds(
 )
 
 
-linear_learning_rate_scheduler_config = builds(
-    torch.optim.lr_scheduler.LinearLR,
+cosine_learning_rate_scheduler_config = builds(
+    CosineLRScheduler,
     populate_full_signature=True,
     zen_partial=True,
 )
+
+accelerator_config = builds(Accelerator, populate_full_signature=True)
+
+cosine_learning_rate_scheduler_config = cosine_learning_rate_scheduler_config()
 
 model_config = builds(build_model, populate_full_signature=True)
 
@@ -181,7 +80,20 @@ dataset_config = builds(build_dataset, populate_full_signature=True)
 
 dataloader_config = builds(DataLoader, dataset=None, populate_full_signature=True)
 
-trainer_config = builds(Trainer, populate_full_signature=True)
+learner_config = builds(Learner, populate_full_signature=True)
+
+learner_config = learner_config(
+    model=None,
+    experiment_name=EXPERIMENT_NAME,
+    experiment_dir=CURRENT_EXPERIMENT_DIR,
+    resume=RESUME,
+    evaluate_every_n_steps=500,
+    checkpoint_after_validation=True,
+    checkpoint_every_n_steps=500,
+    train_iters=10000,
+)
+
+default_callbacks = dict(hf_uploader=hf_upload)
 
 
 @dataclass
@@ -200,18 +112,19 @@ class BaseConfig:
     dataloader: Any = MISSING
     optimizer: Any = MISSING
     scheduler: Any = MISSING
-    trainer: Any = MISSING
-
+    learner: Any = MISSING
     callbacks: Any = MISSING
-    loggers: Any = MISSING
+
+    wandb_args: Any = MISSING
 
     seed: int = 42
 
-    fine_tunable: bool = False
+    freeze_backbone: bool = False
     resume: bool = False
     resume_from_checkpoint: Optional[int] = None
     print_config: bool = False
-    batch_size: int = 16
+    train_batch_size: int = 16
+    eval_batch_size: int = 100
     num_workers: int = multiprocessing.cpu_count()
 
     root_experiment_dir: str = (
@@ -264,8 +177,8 @@ def collect_config_store():
         group="dataloader",
         name="default",
         node=dataloader_config(
-            batch_size=BATCH_SIZE,
-            num_workers=multiprocessing.cpu_count() // 2,
+            batch_size=TRAIN_BATCH_SIZE,
+            num_workers=multiprocessing.cpu_count(),
             pin_memory=True,
             shuffle=True,
         ),
@@ -275,61 +188,24 @@ def collect_config_store():
 
     config_store.store(
         group="scheduler",
-        name="linear-annealing",
-        node=linear_learning_rate_scheduler_config(
-            start_factor=0.1, total_iters=TOTAL_STEPS
-        ),
+        name="cosine-annealing",
+        node=cosine_learning_rate_scheduler_config,
     )
 
-    config_store.store(
-        group="callbacks",
-        name="base",
-        node=base_callbacks,
-    )
-
-    config_store.store(
-        group="callbacks",
-        name="wandb",
-        node=wandb_callbacks,
-    )
     ###################################################################################
     config_store.store(
-        group="loggers",
-        name="wandb",
-        node=dict(wandb=WeightsAndBiasesLoggerConfig()),
-    )
-
-    config_store.store(
-        group="loggers",
-        name="tb",
-        node=dict(tensorboard_logger=TensorboardLoggerConfig()),
-    )
-
-    config_store.store(
-        group="loggers",
-        name="wandb+tb",
-        node=dict(
-            tensorboard=TensorboardLoggerConfig(),
-            wandb=WeightsAndBiasesLoggerConfig(),
-        ),
-    )
-
-    config_store.store(
-        group="trainer",
+        group="learner",
         name="default",
-        node=trainer_config(
-            auto_select_gpus=True,
-            gpus=1,
-            max_steps=1000,
-            val_check_interval=0.50,
-            log_every_n_steps=1,
-            precision=32,
-        ),
+        node=learner_config,
     )
+
+    config_store.store(group="callbacks", name="default", node=default_callbacks)
+
+    config_store.store(group="wandb_args", name="default", node=wandb_args_default)
 
     config_store.store(
         group="hydra",
-        name="custom_logging_path",
+        name="default",
         node=dict(
             job_logging=dict(
                 version=1,
@@ -389,15 +265,15 @@ def collect_config_store():
         *zen_config,
         hydra_defaults=[
             "_self_",
-            dict(trainer="default"),
+            dict(learner="default"),
             dict(optimizer="adamw"),
-            dict(scheduler="linear-annealing"),
+            dict(scheduler="cosine-annealing"),
             dict(model="vit_base_patch16_224"),
             dict(dataset="tiny_imagenet"),
             dict(dataloader="default"),
-            dict(hydra="custom_logging_path"),
-            dict(loggers="wandb"),
-            dict(callbacks="wandb"),
+            dict(hydra="default"),
+            dict(wandb_args="default"),
+            dict(callbacks="default"),
         ],
     )
     # Config

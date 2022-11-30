@@ -1,9 +1,11 @@
 import functools
 from functools import wraps
 from typing import Callable
+import torch
+
+import wandb
 from hydra_zen import builds, instantiate
 from prometheus_client import Metric
-import wandb
 
 
 def configurable(func: Callable) -> Callable:
@@ -20,10 +22,17 @@ def collect_metrics(func: Callable) -> Callable:
     def collect_metrics(step_idx: int, metrics_dict: dict(), phase_name: str) -> None:
         for metric_key, computed_value in metrics_dict.items():
             if computed_value is not None:
+                value = (
+                    computed_value.detach()
+                    if isinstance(computed_value, torch.Tensor)
+                    else computed_value
+                )
                 wandb.log(
-                    {f"{phase_name}/{metric_key}": computed_value.detach()},
+                    {f"{phase_name}/{metric_key}": value},
                     step=step_idx,
                 )
+
+                # print(f"{phase_name}/{metric_key} {value} {step_idx}")
 
     @functools.wraps(func)
     def wrapper_collect_metrics(*args, **kwargs):

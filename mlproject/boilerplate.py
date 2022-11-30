@@ -1,19 +1,25 @@
+from copy import deepcopy
+import copy
 from dataclasses import dataclass
 from pathlib import Path
 from tabnanny import check
 from typing import Any, Dict, List, Union
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import wandb
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-import wandb
+
 from mlproject.callbacks import Callback, Interval
-from mlproject.trainers import ClassificationTrainer, Trainer
 from mlproject.evaluators import ClassificationEvaluator, Evaluator
+from mlproject.trainers import ClassificationTrainer, Trainer
 from mlproject.utils import get_logger
 
-logger = get_logger(__name__, set_default_rich_handler=True)
+from accelerate import Accelerator
+
+logger = get_logger(__name__)
 
 
 class CallbackHandler(Callback):
@@ -107,7 +113,7 @@ class CallbackHandler(Callback):
         self, model: nn.Module, batch: Dict, batch_idx: int
     ) -> None:
         for callback in self.callbacks:
-            callback.on_training_step_stop(model, batch, batch_idx)
+            callback.on_training_step_end(model, batch, batch_idx)
 
     def on_validation_step_start(
         self, model: nn.Module, batch: Dict, batch_idx: int
@@ -119,15 +125,19 @@ class CallbackHandler(Callback):
         self, model: nn.Module, batch: Dict, batch_idx: int
     ) -> None:
         for callback in self.callbacks:
-            callback.on_validation_step_stop(model, batch, batch_idx)
+            callback.on_validation_step_end(model, batch, batch_idx)
 
-    def on_test_step_start(self, model: nn.Module, batch: Dict, batch_idx: int) -> None:
+    def on_testing_step_start(
+        self, model: nn.Module, batch: Dict, batch_idx: int
+    ) -> None:
         for callback in self.callbacks:
-            callback.on_test_step_start(model, batch, batch_idx)
+            callback.on_testing_step_start(model, batch, batch_idx)
 
-    def on_test_step_end(self, model: nn.Module, batch: Dict, batch_idx: int) -> None:
+    def on_testing_step_end(
+        self, model: nn.Module, batch: Dict, batch_idx: int
+    ) -> None:
         for callback in self.callbacks:
-            callback.on_test_step_stop(model, batch, batch_idx)
+            callback.on_testing_step_end(model, batch, batch_idx)
 
     def on_train_start(
         self,
@@ -173,23 +183,23 @@ class CallbackHandler(Callback):
         for callback in self.callbacks:
             callback.on_validation_end(experiment, model, val_dataloaders)
 
-    def on_test_start(
+    def on_testing_start(
         self,
         experiment: Any,
         model: nn.Module,
         test_dataloaders: Union[List[DataLoader], DataLoader] = None,
     ) -> None:
         for callback in self.callbacks:
-            callback.on_test_start(experiment, model, test_dataloaders)
+            callback.on_testing_start(experiment, model, test_dataloaders)
 
-    def on_test_end(
+    def on_testing_end(
         self,
         experiment: Any,
         model: nn.Module,
         test_dataloaders: Union[List[DataLoader], DataLoader] = None,
     ) -> None:
         for callback in self.callbacks:
-            callback.on_test_end(experiment, model, test_dataloaders)
+            callback.on_testing_end(experiment, model, test_dataloaders)
 
     def on_save_checkpoint(
         self,
@@ -212,12 +222,13 @@ class CallbackHandler(Callback):
             callback.on_load_checkpoint(model, optimizers, experiment, checkpoint_path)
 
 
-class Experiment(nn.Module):
+class Learner(nn.Module):
     def __init__(
         self,
         experiment_name: str,
         experiment_dir: Union[str, Path],
         model: torch.nn.Module,
+        resume: Union[bool, str] = False,
         evaluate_every_n_steps: int = None,
         evaluate_every_n_epochs: int = None,
         checkpoint_every_n_steps: int = None,
@@ -225,14 +236,15 @@ class Experiment(nn.Module):
         train_iters: int = None,
         train_epochs: int = None,
         train_dataloader: DataLoader = None,
+        limit_train_iters: int = None,
         val_dataloaders: Union[List[DataLoader], DataLoader] = None,
+        limit_val_iters: int = None,
         test_dataloaders: Union[List[DataLoader], DataLoader] = None,
         trainers: Union[List[Trainer], Trainer] = None,
         evaluators: Union[List[Evaluator], Evaluator] = None,
         callbacks: Union[List[Callback], Callback] = None,
     ):
         super().__init__()
-        wandb.init(project=experiment_name, dir=experiment_dir)
         self.experiment_name = experiment_name
         self.experiment_dir = (
             experiment_dir if isinstance(experiment_dir, Path) else Path(experiment_dir)
@@ -252,6 +264,8 @@ class Experiment(nn.Module):
         self.checkpoint_after_validation = checkpoint_after_validation
         self.step_idx = 0
         self.epoch_idx = 0
+        self.limit_train_iters = limit_train_iters
+        self.limit_val_iters = limit_val_iters
 
         if train_iters is None and train_epochs is None:
             raise ValueError("Either train_iters or train_epochs must be specified")
@@ -288,6 +302,8 @@ class Experiment(nn.Module):
             test_dataloaders=self.test_dataloaders,
         )
 
+        self.resume = resume
+
         self.eval_mode = (
             Interval.STEP if self.evaluate_every_n_steps else Interval.EPOCH
         )
@@ -310,6 +326,51 @@ class Experiment(nn.Module):
             test_dataloaders=self.test_dataloaders,
         )
 
+        if isinstance(resume, str):
+            checkpoint_path = Path(resume)
+            if not checkpoint_path.exists():
+                raise ValueError(
+                    f"Checkpoint path {checkpoint_path} does not exist, please check your resume= argument"
+                )
+
+        elif resume is True:
+            checkpoint_path = Path(self.checkpoints_dir / "latest.pt")
+            if not checkpoint_path.exists():
+                logger.info(
+                    f"Checkpoint path {checkpoint_path} does not exist, "
+                    f"starting from scratch :start:"
+                )
+            else:
+                self.load_checkpoint(checkpoint_path=checkpoint_path)
+
+        self.accelerator = Accelerator()
+
+        self.model = self.model.to(self.accelerator.device)
+        self.model, self.train_dataloader = self.accelerator.prepare(
+            self.model, self.train_dataloader
+        )
+        temp_trainers = copy.deepcopy(self.trainers)
+        self.trainers = []
+        for trainer in temp_trainers:
+            trainer.optimizer = self.accelerator.prepare(trainer.get_optimizer())
+            if trainer.scheduler is not None:
+                trainer.scheduler = self.accelerator.prepare(trainer.scheduler)
+            self.trainers.append(trainer)
+
+        if self.val_dataloaders is not None:
+            temp_val_dataloaders = copy.deepcopy(self.val_dataloaders)
+            self.val_dataloaders = []
+            for val_dataloader in temp_val_dataloaders:
+                val_dataloader = self.accelerator.prepare(val_dataloader)
+                self.val_dataloaders.append(val_dataloader)
+
+        if self.test_dataloaders is not None:
+            temp_test_dataloaders = copy.deepcopy(self.test_dataloaders)
+            self.test_dataloaders = []
+            for test_dataloader in temp_test_dataloaders:
+                test_dataloader = self.accelerator.prepare(test_dataloader)
+                self.test_dataloaders.append(test_dataloader)
+
         for key, value in self.named_parameters():
             logger.info(
                 f"Parameter {key} -> {value.shape} requires grad {value.requires_grad}"
@@ -322,22 +383,10 @@ class Experiment(nn.Module):
         return self.model(x)
 
     def __repr__(self):
-        return (
-            f"{self.__class__.__name__}"
-            f"(experiment_name={self.experiment_name}, "
-            f"experiment_dir={self.experiment_dir}, "
-            f"model={self.model}, "
-            f"evaluate_every_n_steps={self.evaluate_every_n_steps}, "
-            f"evaluate_every_n_epochs={self.evaluate_every_n_epochs}, "
-            f"checkpoint_every_n_steps={self.checkpoint_every_n_steps}, "
-            f"checkpoint_after_validation={self.checkpoint_after_validation}, "
-            f"train_iters={self.train_iters}, "
-            f"train_epochs={self.train_epochs}, "
-            f"train_dataloader={self.train_dataloader}, "
-            f"val_dataloaders={self.val_dataloaders}, "
-            f"test_dataloaders={self.test_dataloaders}, "
-            f"trainers={self.trainers}, "
+        attributes = "\n".join(
+            [f"{key}={value}" for key, value in self.__dict__.items()]
         )
+        return f"{self.__class__.__name__}\n {attributes}"
 
     def __str__(self):
         return self.__repr__()
@@ -348,7 +397,11 @@ class Experiment(nn.Module):
 
         for trainer in self.trainers:
             trainer.training_step(
-                model=model, batch=batch, batch_idx=batch_idx, step_idx=self.step_idx
+                model=model,
+                batch=batch,
+                batch_idx=batch_idx,
+                step_idx=self.step_idx,
+                epoch_idx=self.epoch_idx,
             )
 
         self.callback_handler.on_batch_end(model, batch, batch_idx)
@@ -360,7 +413,11 @@ class Experiment(nn.Module):
 
         for evaluator in self.evaluators:
             evaluator.validation_step(
-                model=model, batch=batch, batch_idx=batch_idx, step_idx=self.step_idx
+                model=model,
+                batch=batch,
+                batch_idx=batch_idx,
+                step_idx=self.step_idx,
+                epoch_idx=self.epoch_idx,
             )
 
         self.callback_handler.on_batch_end(model, batch, batch_idx)
@@ -368,55 +425,103 @@ class Experiment(nn.Module):
 
     def testing_step(self, model, batch, batch_idx):
         self.callback_handler.on_batch_start(model, batch, batch_idx)
-        self.callback_handler.on_test_step_start(model, batch, batch_idx)
+        self.callback_handler.on_testing_step_start(model, batch, batch_idx)
 
         for evaluator in self.evaluators:
             evaluator.testing_step(
-                model=model, batch=batch, batch_idx=batch_idx, step_idx=self.step_idx
+                model=model,
+                batch=batch,
+                batch_idx=batch_idx,
+                step_idx=self.step_idx,
+                epoch_idx=self.epoch_idx,
             )
 
         self.callback_handler.on_batch_end(model, batch, batch_idx)
-        self.callback_handler.on_test_step_end(model, batch, batch_idx)
+        self.callback_handler.on_testing_step_end(model, batch, batch_idx)
 
     def start_training(self, train_dataloader: DataLoader):
         self.callback_handler.on_train_start(
             experiment=self, model=self.model, train_dataloader=train_dataloader
         )
-        print("Starting training... :runner:")
+
+        for trainer in self.trainers:
+            trainer.start_training(
+                epoch_idx=self.epoch_idx,
+                step_idx=self.step_idx,
+                train_dataloader=train_dataloader,
+            )
+
+        logger.info(f"Starting training 🏋🏽")
 
     def end_training(self, train_dataloader: DataLoader):
         self.callback_handler.on_train_end(
             experiment=self, model=self.model, train_dataloader=train_dataloader
         )
-        print("Training finished :tada:")
+
+        for trainer in self.trainers:
+            trainer.end_training(
+                epoch_idx=self.epoch_idx,
+                step_idx=self.step_idx,
+                train_dataloader=train_dataloader,
+            )
+
+        logger.info("Training finished 🎉")
 
     def start_validation(self, val_dataloaders: List[DataLoader]):
         self.callback_handler.on_validation_start(
             experiment=self, model=self.model, val_dataloaders=val_dataloaders
         )
 
-        print("Starting validation...")
+        for evaluator in self.evaluators:
+            evaluator.start_validation(
+                epoch_idx=self.epoch_idx,
+                step_idx=self.step_idx,
+                val_dataloaders=val_dataloaders,
+            )
+
+        logger.info("Starting validation 🧪")
 
     def end_validation(self, val_dataloaders: List[DataLoader]):
         self.callback_handler.on_validation_end(
             experiment=self, model=self.model, val_dataloaders=val_dataloaders
         )
 
-        print("Validation finished :tada:")
+        for evaluator in self.evaluators:
+            evaluator.end_validation(
+                epoch_idx=self.epoch_idx,
+                step_idx=self.step_idx,
+                val_dataloaders=val_dataloaders,
+            )
+
+        logger.info("Validation finished 🎉")
 
     def start_testing(self, test_dataloaders: List[DataLoader]):
-        self.callback_handler.on_test_start(
+        self.callback_handler.on_testing_start(
             experiment=self, model=self.model, test_dataloaders=test_dataloaders
         )
 
-        print("Starting testing...")
+        for evaluator in self.evaluators:
+            evaluator.start_testing(
+                epoch_idx=self.epoch_idx,
+                step_idx=self.step_idx,
+                test_dataloaders=test_dataloaders,
+            )
+
+        logger.info("Starting testing 🧪")
 
     def end_testing(self, test_dataloaders: List[DataLoader]):
-        self.callback_handler.on_test_end(
+        self.callback_handler.on_testing_end(
             experiment=self, model=self.model, test_dataloaders=test_dataloaders
         )
 
-        print("Testing finished :tada:")
+        for evaluator in self.evaluators:
+            evaluator.end_testing(
+                epoch_idx=self.epoch_idx,
+                step_idx=self.step_idx,
+                test_dataloaders=test_dataloaders,
+            )
+
+        logger.info("Testing finished 🎉")
 
     def train(self, train_dataloader: DataLoader = None):
         self._training_loop(train_dataloader=train_dataloader)
@@ -439,6 +544,9 @@ class Experiment(nn.Module):
                 for val_dataloader in val_dataloaders:
                     with tqdm(total=len(val_dataloader)) as pbar:
                         for batch_idx, batch in enumerate(val_dataloader):
+                            if self.limit_val_iters is not None:
+                                if batch_idx >= self.limit_val_iters:
+                                    break
                             self.validation_step(
                                 model=self.model, batch=batch, batch_idx=batch_idx
                             )
@@ -479,6 +587,10 @@ class Experiment(nn.Module):
                 for epoch_idx in range(self.epoch_idx, self.train_epochs):
                     self.epoch_idx = epoch_idx
 
+                    if self.limit_train_iters is not None:
+                        if self.step_idx >= self.limit_train_iters:
+                            break
+
                     if (
                         self.eval_mode == Interval.EPOCH
                         and epoch_idx % self.evaluate_every_n_epochs == 0
@@ -486,6 +598,7 @@ class Experiment(nn.Module):
                         self._validation_loop()
 
                     for batch_idx, batch in enumerate(train_dataloader):
+
                         self.training_step(
                             model=self.model, batch=batch, batch_idx=batch_idx
                         )
@@ -533,7 +646,7 @@ class Experiment(nn.Module):
         state = dict(
             exp=experiment_hyperparameters, optimizers=optimizer_states, model=model
         )
-        ckpt_save_path = self.experiment_dir / f"{self.experiment_name}.pt"
+        ckpt_save_path = self.checkpoints_dir / f"ckpt_{self.step_idx}.pt"
         torch.save(obj=state, f=ckpt_save_path)
 
         self.callback_handler.on_save_checkpoint(
@@ -543,16 +656,27 @@ class Experiment(nn.Module):
             checkpoint_path=ckpt_save_path,
         )
 
+        last_ckpt_save_path = self.checkpoints_dir / "latest.pt"
+        torch.save(obj=state, f=last_ckpt_save_path)
+
+        self.callback_handler.on_save_checkpoint(
+            model=model,
+            optimizers=optimizer_states,
+            experiment=self,
+            checkpoint_path=last_ckpt_save_path,
+        )
+
     def load_checkpoint(self, checkpoint_path: Union[str, Path]):
         checkpoint_path = (
             checkpoint_path
             if isinstance(checkpoint_path, Path)
             else Path(checkpoint_path)
         )
+        logger.info(f"Loading checkpoint from {checkpoint_path}")
         state = torch.load(checkpoint_path)
         self.model.load_state_dict(state["model"])
-        self.step_idx = state["exp_state"]["step_idx"]
-        self.epoch_idx = state["exp_state"]["epoch_idx"]
+        self.step_idx = state["exp"]["step_idx"]
+        self.epoch_idx = state["exp"]["epoch_idx"]
 
         for idx, (trainer, optimizer_state) in enumerate(
             zip(self.trainers, state["optimizers"])
@@ -578,15 +702,13 @@ class Experiment(nn.Module):
 # Add callback functionality for training, validation, testing, and checkpointing
 # Build a standard Trainer and Evaluator for classification
 if __name__ == "__main__":
-    from torch.utils.data import DataLoader, Dataset
-    from torchvision.transforms import Compose, ColorJitter, Resize, ToTensor
-    from torch.utils.data import DataLoader
-    from torch.optim import Adam
-    from torch.nn import CrossEntropyLoss
-
-    from datasets import load_dataset, Image
-    from rich import print
     import torch
+    from datasets import Image, load_dataset
+    from rich import print
+    from torch.nn import CrossEntropyLoss
+    from torch.optim import Adam
+    from torch.utils.data import DataLoader, Dataset
+    from torchvision.transforms import ColorJitter, Compose, Resize, ToTensor
 
     train_dataset = load_dataset("beans", split="train")
     val_dataset = load_dataset("beans", split="validation")
@@ -638,19 +760,20 @@ if __name__ == "__main__":
 
     criterion = CrossEntropyLoss()
 
-    experiment = Experiment(
-        experiment_name="debug",
-        experiment_dir="debug_folder",
+    experiment = Learner(
+        experiment_name="debug_checkpointing",
+        experiment_dir="/exp/debug_checkpointing",
         model=model,
         train_dataloader=train_dataloader,
         val_dataloaders=[val_dataloader],
         test_dataloaders=[test_dataloader],
         trainers=[ClassificationTrainer(optimizer=optimizer)],
         evaluators=[ClassificationEvaluator()],
-        evaluate_every_n_steps=250,
-        checkpoint_every_n_steps=250,
+        evaluate_every_n_steps=5,
+        checkpoint_every_n_steps=5,
         checkpoint_after_validation=True,
         train_iters=1000,
+        resume=True,
     )
 
     experiment.run()

@@ -1,6 +1,7 @@
 import copy
 from dataclasses import dataclass
 from typing import Any, Dict
+
 import torch.nn as nn
 from torchvision import transforms
 from torchvision.transforms import ToTensor
@@ -24,7 +25,7 @@ def build_model(
         model_name, num_labels=num_classes
     )
 
-    if pretrained:
+    if not pretrained:
         model.init_weights()
 
     transform = lambda image: feature_extractor(images=image, return_tensors="pt")

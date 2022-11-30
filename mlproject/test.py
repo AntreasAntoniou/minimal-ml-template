@@ -1,7 +1,14 @@
 import os
+
+import dotenv
+import wandb
 from rich import print
 from rich.traceback import install
-import dotenv
+
+from mlproject.boilerplate import Learner
+from mlproject.callbacks import Callback
+from mlproject.evaluators import ClassificationEvaluator
+from mlproject.trainers import ClassificationTrainer
 
 os.environ[
     "HYDRA_FULL_ERROR"
@@ -19,6 +26,7 @@ dotenv.load_dotenv(override=True, verbose=True)
 
 import pathlib
 from typing import Callable, List, Optional
+
 import dotenv
 import hydra
 import torch
@@ -28,7 +36,6 @@ from omegaconf import OmegaConf
 from torch import nn
 from torch.utils.data import Dataset
 
-from mlproject.trainers import TrainingEvaluationAgent
 from mlproject.config import BaseConfig, collect_config_store
 from mlproject.models import ModelAndTransform
 from mlproject.utils import get_logger, pretty_config
@@ -41,17 +48,7 @@ logger = get_logger(name=__name__)
 def instantiate_callbacks(callback_dict: dict, config: BaseConfig) -> List[Callback]:
     callbacks = []
     for cb_conf in callback_dict.values():
-        if "LogConfigInformation" in cb_conf["_target_"]:
-            callbacks.append(
-                instantiate(
-                    config=cb_conf,
-                    exp_config=OmegaConf.to_container(config, resolve=True),
-                    _recursive_=False,
-                )
-            )
-
-        else:
-            callbacks.append(instantiate(cb_conf))
+        callbacks.append(instantiate(cb_conf))
 
     return callbacks
 
@@ -83,7 +80,7 @@ def create_hf_model_repo_and_download_maybe(cfg: BaseConfig):
             repo_id=cfg.exp_name,
             cache_dir=hf_repo,
             resume_download=True,
-            filename="last.ckpt",
+            filename="latest.ckpt",
         )
         download_success = True
         return repo, download_success
@@ -107,65 +104,39 @@ def run(cfg: BaseConfig) -> None:
     dataset: Dataset = instantiate(cfg.dataset)
     train_dataset: Dataset = dataset["train"]
     val_dataset: Dataset = dataset["validation"]
-    test_dataset: Dataset = dataset["validation"]
 
     train_dataset.set_transform(transform)
     val_dataset.set_transform(transform)
-    test_dataset.set_transform(transform)
 
     train_dataloader = instantiate(cfg.dataloader, dataset=train_dataset, shuffle=True)
     val_dataloader = instantiate(cfg.dataloader, dataset=val_dataset, shuffle=False)
-    test_dataloader = instantiate(cfg.dataloader, dataset=test_dataset, shuffle=False)
 
     optimizer: torch.optim.Optimizer = instantiate(
         cfg.optimizer, params=model.parameters(), _partial_=False
     )
     scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = instantiate(
-        cfg.scheduler, optimizer=optimizer, _partial_=False
-    )
-    callbacks: List[Callback] = instantiate_callbacks(
-        callback_dict=cfg.callbacks, config=cfg
-    )
-
-    loggers: List[LightningLoggerBase] = [
-        instantiate(value) for key, value in cfg.loggers.items()
-    ]
-
-    lightning_model = TrainingEvaluationAgent(
-        model=model,
+        cfg.scheduler,
         optimizer=optimizer,
-        scheduler=scheduler,
-        fine_tunable=cfg.fine_tunable,
+        t_initial=cfg.learner.train_iters,
+        _partial_=False,
     )
 
-    trainer: Trainer = instantiate(
-        cfg.trainer,
-        callbacks=callbacks,
-        logger=loggers,
-        _convert_="partial",
+    wandb_args = {
+        key: value for key, value in cfg.wandb_args.items() if key != "_target_"
+    }
+
+    wandb.init(**wandb_args)
+
+    learner = instantiate(
+        cfg.learner,
+        model=model,
+        trainers=[ClassificationTrainer(optimizer=optimizer, scheduler=scheduler)],
+        evaluators=[ClassificationEvaluator()],
+        train_dataloader=train_dataloader,
+        val_dataloaders=[val_dataloader],
     )
 
-    checkpoint_filepath = None
-
-    if cfg.resume:
-        checkpoint_filepath = pathlib.Path(repo.local_dir / "last.ckpt")
-
-        if checkpoint_filepath.exists():
-            logger.info(f"Resuming from checkpoint: {checkpoint_filepath}")
-        else:
-            checkpoint_filepath = None
-
-    train_results = trainer.fit(
-        model=lightning_model,
-        train_dataloaders=train_dataloader,
-        val_dataloaders=val_dataloader,
-        ckpt_path=checkpoint_filepath,
-    )
-    test_results = trainer.test(
-        model=lightning_model,
-        data_loaders=test_dataloader,
-        ckpt_path=trainer.checkpoint_callback.best_model_path,
-    )
+    learner.train()
 
 
 if __name__ == "__main__":
