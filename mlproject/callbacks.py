@@ -171,32 +171,207 @@ class Callback(object):
     ) -> None:
         pass
 
-    # class UploadCodeAsArtifact(Callback):
-    # """Upload all code files to wandb as an artifact, at the beginning of the run."""
+class CallbackHandler(Callback):
+    def __init__(self, callbacks: List[Callback]) -> None:
+        super().__init__()
+        self.callbacks = callbacks
 
-    # def __init__(self, code_dir: str):
-    #     """
+    def on_init_start(
+        self,
+        experiment: Any,
+        model: nn.Module,
+        train_dataloader: DataLoader = None,
+        val_dataloaders: Union[List[DataLoader], DataLoader] = None,
+        test_dataloaders: Union[List[DataLoader], DataLoader] = None,
+    ) -> None:
+        for callback in self.callbacks:
+            callback.on_init_start(
+                experiment,
+                model,
+                train_dataloader,
+                val_dataloaders,
+                test_dataloaders,
+            )
 
-    #     Args:
-    #         code_dir: the code directory
-    #         use_git: if using git, then upload all files that are not ignored by git.
-    #         if not using git, then upload all '*.py' file
-    #     """
-    #     self.code_dir = code_dir
+    def on_init_end(
+        self,
+        experiment: Any,
+        model: nn.Module,
+        train_dataloader: DataLoader = None,
+        val_dataloaders: Union[List[DataLoader], DataLoader] = None,
+        test_dataloaders: Union[List[DataLoader], DataLoader] = None,
+    ) -> None:
+        for callback in self.callbacks:
+            callback.on_init_end(
+                experiment,
+                model,
+                train_dataloader,
+                val_dataloaders,
+                test_dataloaders,
+            )
 
-    # @rank_zero_only
-    # def on_train_start(self, trainer, pl_module):
-    #     logger = get_wandb_logger(trainer=trainer)
-    #     experiment = logger.experiment
+    def on_epoch_start(
+        self,
+        experiment: Any,
+        model: nn.Module,
+        train_dataloader: DataLoader = None,
+        val_dataloaders: Union[List[DataLoader], DataLoader] = None,
+        test_dataloaders: Union[List[DataLoader], DataLoader] = None,
+    ) -> None:
+        for callback in self.callbacks:
+            callback.on_epoch_start(
+                experiment,
+                model,
+                train_dataloader,
+                val_dataloaders,
+                test_dataloaders,
+            )
 
-    #     code = wandb.Artifact("project-source", type="code")
+    def on_epoch_end(
+        self,
+        experiment: Any,
+        model: nn.Module,
+        train_dataloader: DataLoader = None,
+        val_dataloaders: Union[List[DataLoader], DataLoader] = None,
+        test_dataloaders: Union[List[DataLoader], DataLoader] = None,
+    ) -> None:
+        for callback in self.callbacks:
+            callback.on_epoch_end(
+                experiment,
+                model,
+                train_dataloader,
+                val_dataloaders,
+                test_dataloaders,
+            )
 
-    #     for path in Path(self.code_dir).resolve().rglob("*.py"):
-    #         code.add_file(str(path), name=str(path.relative_to(self.code_dir)))
+    def on_batch_start(self, model: nn.Module, batch: Dict, batch_idx: int) -> None:
+        for callback in self.callbacks:
+            callback.on_batch_start(model, batch, batch_idx)
 
-    #     experiment.log_artifact(code)
+    def on_batch_end(self, model: nn.Module, batch: Dict, batch_idx: int) -> None:
+        for callback in self.callbacks:
+            callback.on_batch_end(model, batch, batch_idx)
 
+    def on_training_step_start(
+        self, model: nn.Module, batch: Dict, batch_idx: int
+    ) -> None:
+        for callback in self.callbacks:
+            callback.on_training_step_start(model, batch, batch_idx)
 
+    def on_training_step_end(
+        self, model: nn.Module, batch: Dict, batch_idx: int
+    ) -> None:
+        for callback in self.callbacks:
+            callback.on_training_step_end(model, batch, batch_idx)
+
+    def on_validation_step_start(
+        self, model: nn.Module, batch: Dict, batch_idx: int
+    ) -> None:
+        for callback in self.callbacks:
+            callback.on_validation_step_start(model, batch, batch_idx)
+
+    def on_validation_step_end(
+        self, model: nn.Module, batch: Dict, batch_idx: int
+    ) -> None:
+        for callback in self.callbacks:
+            callback.on_validation_step_end(model, batch, batch_idx)
+
+    def on_testing_step_start(
+        self, model: nn.Module, batch: Dict, batch_idx: int
+    ) -> None:
+        for callback in self.callbacks:
+            callback.on_testing_step_start(model, batch, batch_idx)
+
+    def on_testing_step_end(
+        self, model: nn.Module, batch: Dict, batch_idx: int
+    ) -> None:
+        for callback in self.callbacks:
+            callback.on_testing_step_end(model, batch, batch_idx)
+
+    def on_train_start(
+        self,
+        experiment: Any,
+        model: nn.Module,
+        train_dataloader: DataLoader = None,
+    ) -> None:
+        for callback in self.callbacks:
+            callback.on_train_start(experiment, model, train_dataloader)
+
+    def on_train_end(
+        self,
+        experiment: Any,
+        model: nn.Module,
+        train_dataloader: DataLoader = None,
+        val_dataloaders: Union[List[DataLoader], DataLoader] = None,
+        test_dataloaders: Union[List[DataLoader], DataLoader] = None,
+    ) -> None:
+        for callback in self.callbacks:
+            callback.on_train_end(
+                experiment,
+                model,
+                train_dataloader,
+                val_dataloaders,
+                test_dataloaders,
+            )
+
+    def on_validation_start(
+        self,
+        experiment: Any,
+        model: nn.Module,
+        val_dataloaders: Union[List[DataLoader], DataLoader] = None,
+    ):
+        for callback in self.callbacks:
+            callback.on_validation_start(experiment, model, val_dataloaders)
+
+    def on_validation_end(
+        self,
+        experiment: Any,
+        model: nn.Module,
+        val_dataloaders: Union[List[DataLoader], DataLoader] = None,
+    ) -> None:
+        for callback in self.callbacks:
+            callback.on_validation_end(experiment, model, val_dataloaders)
+
+    def on_testing_start(
+        self,
+        experiment: Any,
+        model: nn.Module,
+        test_dataloaders: Union[List[DataLoader], DataLoader] = None,
+    ) -> None:
+        for callback in self.callbacks:
+            callback.on_testing_start(experiment, model, test_dataloaders)
+
+    def on_testing_end(
+        self,
+        experiment: Any,
+        model: nn.Module,
+        test_dataloaders: Union[List[DataLoader], DataLoader] = None,
+    ) -> None:
+        for callback in self.callbacks:
+            callback.on_testing_end(experiment, model, test_dataloaders)
+
+    def on_save_checkpoint(
+        self,
+        model: nn.Module,
+        optimizers: List[torch.optim.Optimizer],
+        experiment: Any,
+        checkpoint_path: Path,
+    ) -> None:
+        for callback in self.callbacks:
+            callback.on_save_checkpoint(model, optimizers, experiment, checkpoint_path)
+
+    def on_load_checkpoint(
+        self,
+        model: nn.Module,
+        optimizers: List[torch.optim.Optimizer],
+        experiment: Any,
+        checkpoint_path: Path,
+    ) -> None:
+        for callback in self.callbacks:
+            callback.on_load_checkpoint(model, optimizers, experiment, checkpoint_path)
+
+   
+ 
 class UploadCheckpointsToHuggingFace(Callback):
     def __init__(self, repo_name: str, repo_owner: str):
         from huggingface_hub import HfApi
@@ -218,29 +393,4 @@ class UploadCheckpointsToHuggingFace(Callback):
             path_or_fileobj=checkpoint_path.as_posix(),
             path_in_repo=f"checkpoints/{checkpoint_path.name}",
         )
-
-    # class LogConfigInformation(Callback):
-    # """Logs a validation batch and their predictions to wandb.
-    # Example adapted from:
-    #     https://wandb.ai/wandb/wandb-lightning/reports/Image-Classification-using-PyTorch-Lightning--VmlldzoyODk1NzY
-    # """
-
-    # def __init__(self, exp_config=None):
-    #     super().__init__()
-    #     self.done = False
-    #     self.exp_config = exp_config
-
-    # @rank_zero_only
-    # def on_batch_start(self, trainer: Trainer, pl_module: LightningModule) -> None:
-    #     if not self.done:
-    #         logger = get_wandb_logger(trainer=trainer)
-
-    #         trainer_hparams = trainer.__dict__.copy()
-
-    #         hparams = {
-    #             "trainer": trainer_hparams,
-    #             "config": self.exp_config,
-    #         }
-
-    #         logger.log_hyperparams(hparams)
-    #         self.done = True
+ 

@@ -22,206 +22,6 @@ from accelerate import Accelerator
 logger = get_logger(__name__)
 
 
-class CallbackHandler(Callback):
-    def __init__(self, callbacks: List[Callback]) -> None:
-        super().__init__()
-        self.callbacks = callbacks
-
-    def on_init_start(
-        self,
-        experiment: Any,
-        model: nn.Module,
-        train_dataloader: DataLoader = None,
-        val_dataloaders: Union[List[DataLoader], DataLoader] = None,
-        test_dataloaders: Union[List[DataLoader], DataLoader] = None,
-    ) -> None:
-        for callback in self.callbacks:
-            callback.on_init_start(
-                experiment,
-                model,
-                train_dataloader,
-                val_dataloaders,
-                test_dataloaders,
-            )
-
-    def on_init_end(
-        self,
-        experiment: Any,
-        model: nn.Module,
-        train_dataloader: DataLoader = None,
-        val_dataloaders: Union[List[DataLoader], DataLoader] = None,
-        test_dataloaders: Union[List[DataLoader], DataLoader] = None,
-    ) -> None:
-        for callback in self.callbacks:
-            callback.on_init_end(
-                experiment,
-                model,
-                train_dataloader,
-                val_dataloaders,
-                test_dataloaders,
-            )
-
-    def on_epoch_start(
-        self,
-        experiment: Any,
-        model: nn.Module,
-        train_dataloader: DataLoader = None,
-        val_dataloaders: Union[List[DataLoader], DataLoader] = None,
-        test_dataloaders: Union[List[DataLoader], DataLoader] = None,
-    ) -> None:
-        for callback in self.callbacks:
-            callback.on_epoch_start(
-                experiment,
-                model,
-                train_dataloader,
-                val_dataloaders,
-                test_dataloaders,
-            )
-
-    def on_epoch_end(
-        self,
-        experiment: Any,
-        model: nn.Module,
-        train_dataloader: DataLoader = None,
-        val_dataloaders: Union[List[DataLoader], DataLoader] = None,
-        test_dataloaders: Union[List[DataLoader], DataLoader] = None,
-    ) -> None:
-        for callback in self.callbacks:
-            callback.on_epoch_end(
-                experiment,
-                model,
-                train_dataloader,
-                val_dataloaders,
-                test_dataloaders,
-            )
-
-    def on_batch_start(self, model: nn.Module, batch: Dict, batch_idx: int) -> None:
-        for callback in self.callbacks:
-            callback.on_batch_start(model, batch, batch_idx)
-
-    def on_batch_end(self, model: nn.Module, batch: Dict, batch_idx: int) -> None:
-        for callback in self.callbacks:
-            callback.on_batch_end(model, batch, batch_idx)
-
-    def on_training_step_start(
-        self, model: nn.Module, batch: Dict, batch_idx: int
-    ) -> None:
-        for callback in self.callbacks:
-            callback.on_training_step_start(model, batch, batch_idx)
-
-    def on_training_step_end(
-        self, model: nn.Module, batch: Dict, batch_idx: int
-    ) -> None:
-        for callback in self.callbacks:
-            callback.on_training_step_end(model, batch, batch_idx)
-
-    def on_validation_step_start(
-        self, model: nn.Module, batch: Dict, batch_idx: int
-    ) -> None:
-        for callback in self.callbacks:
-            callback.on_validation_step_start(model, batch, batch_idx)
-
-    def on_validation_step_end(
-        self, model: nn.Module, batch: Dict, batch_idx: int
-    ) -> None:
-        for callback in self.callbacks:
-            callback.on_validation_step_end(model, batch, batch_idx)
-
-    def on_testing_step_start(
-        self, model: nn.Module, batch: Dict, batch_idx: int
-    ) -> None:
-        for callback in self.callbacks:
-            callback.on_testing_step_start(model, batch, batch_idx)
-
-    def on_testing_step_end(
-        self, model: nn.Module, batch: Dict, batch_idx: int
-    ) -> None:
-        for callback in self.callbacks:
-            callback.on_testing_step_end(model, batch, batch_idx)
-
-    def on_train_start(
-        self,
-        experiment: Any,
-        model: nn.Module,
-        train_dataloader: DataLoader = None,
-    ) -> None:
-        for callback in self.callbacks:
-            callback.on_train_start(experiment, model, train_dataloader)
-
-    def on_train_end(
-        self,
-        experiment: Any,
-        model: nn.Module,
-        train_dataloader: DataLoader = None,
-        val_dataloaders: Union[List[DataLoader], DataLoader] = None,
-        test_dataloaders: Union[List[DataLoader], DataLoader] = None,
-    ) -> None:
-        for callback in self.callbacks:
-            callback.on_train_end(
-                experiment,
-                model,
-                train_dataloader,
-                val_dataloaders,
-                test_dataloaders,
-            )
-
-    def on_validation_start(
-        self,
-        experiment: Any,
-        model: nn.Module,
-        val_dataloaders: Union[List[DataLoader], DataLoader] = None,
-    ):
-        for callback in self.callbacks:
-            callback.on_validation_start(experiment, model, val_dataloaders)
-
-    def on_validation_end(
-        self,
-        experiment: Any,
-        model: nn.Module,
-        val_dataloaders: Union[List[DataLoader], DataLoader] = None,
-    ) -> None:
-        for callback in self.callbacks:
-            callback.on_validation_end(experiment, model, val_dataloaders)
-
-    def on_testing_start(
-        self,
-        experiment: Any,
-        model: nn.Module,
-        test_dataloaders: Union[List[DataLoader], DataLoader] = None,
-    ) -> None:
-        for callback in self.callbacks:
-            callback.on_testing_start(experiment, model, test_dataloaders)
-
-    def on_testing_end(
-        self,
-        experiment: Any,
-        model: nn.Module,
-        test_dataloaders: Union[List[DataLoader], DataLoader] = None,
-    ) -> None:
-        for callback in self.callbacks:
-            callback.on_testing_end(experiment, model, test_dataloaders)
-
-    def on_save_checkpoint(
-        self,
-        model: nn.Module,
-        optimizers: List[torch.optim.Optimizer],
-        experiment: Any,
-        checkpoint_path: Path,
-    ) -> None:
-        for callback in self.callbacks:
-            callback.on_save_checkpoint(model, optimizers, experiment, checkpoint_path)
-
-    def on_load_checkpoint(
-        self,
-        model: nn.Module,
-        optimizers: List[torch.optim.Optimizer],
-        experiment: Any,
-        checkpoint_path: Path,
-    ) -> None:
-        for callback in self.callbacks:
-            callback.on_load_checkpoint(model, optimizers, experiment, checkpoint_path)
-
-
 class Learner(nn.Module):
     def __init__(
         self,
@@ -615,7 +415,7 @@ class Learner(nn.Module):
                         self.step_idx += 1
 
                         if self.step_idx >= self.train_iters:
-                            self.end_training()
+                            return self.end_training(train_dataloader=train_dataloader)
 
                         pbar_steps.update(1)
 
@@ -695,13 +495,8 @@ class Learner(nn.Module):
         )
 
 
-# Ensure continued experiments work properly, especially dataloaders continuing from the right step_idx
-# Add load checkpoint functionality
-# Add validation and testing loops
-# Add explicit call for validation and testing without training
-# Add callback functionality for training, validation, testing, and checkpointing
-# Build a standard Trainer and Evaluator for classification
 if __name__ == "__main__":
+    # a minimal example of how to use the Learner class
     import torch
     from datasets import Image, load_dataset
     from rich import print

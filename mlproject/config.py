@@ -157,7 +157,7 @@ def collect_config_store():
         num_classes=101,
     )
 
-    tiny_imagenet_config = dataset_config(dataset_name="food101", data_dir=DATASET_DIR)
+    food101_config = dataset_config(dataset_name="food101", data_dir=DATASET_DIR)
 
     ###################################################################################
 
@@ -169,8 +169,8 @@ def collect_config_store():
 
     config_store.store(
         group="dataset",
-        name="tiny_imagenet",
-        node=tiny_imagenet_config,
+        name="food101",
+        node=food101_config,
     )
 
     config_store.store(
