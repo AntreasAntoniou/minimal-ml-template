@@ -85,7 +85,7 @@ learner_config = builds(Learner, populate_full_signature=True)
 learner_config = learner_config(
     model=None,
     experiment_name=EXPERIMENT_NAME,
-    experiment_dir=CURRENT_EXPERIMENT_DIR,
+    experiment_dir=CHECKPOINT_DIR,
     resume=RESUME,
     evaluate_every_n_steps=500,
     checkpoint_after_validation=True,
@@ -126,6 +126,10 @@ class BaseConfig:
     train_batch_size: int = 16
     eval_batch_size: int = 100
     num_workers: int = multiprocessing.cpu_count()
+    train: bool = True
+    test: bool = False
+    download_latest: bool = True
+    download_checkpoint_with_name: Optional[str] = None
 
     root_experiment_dir: str = (
         os.environ["EXPERIMENTS_DIR"]
@@ -139,7 +143,7 @@ class BaseConfig:
 
     current_experiment_dir: str = "${root_experiment_dir}/${exp_name}"
     repo_path: str = "${hf_username}/${exp_name}"
-    hf_repo_dir: str = "${current_experiment_dir}/hf_repo"
+    hf_repo_dir: str = "${current_experiment_dir}/repo"
     code_dir: str = "${hydra:runtime.cwd}"
 
 
@@ -269,7 +273,7 @@ def collect_config_store():
             dict(optimizer="adamw"),
             dict(scheduler="cosine-annealing"),
             dict(model="vit_base_patch16_224"),
-            dict(dataset="tiny_imagenet"),
+            dict(dataset="food101"),
             dict(dataloader="default"),
             dict(hydra="default"),
             dict(wandb_args="default"),

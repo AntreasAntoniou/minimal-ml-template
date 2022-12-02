@@ -12,7 +12,7 @@ import wandb
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from mlproject.callbacks import Callback, Interval
+from mlproject.callbacks import Callback, CallbackHandler, Interval
 from mlproject.evaluators import ClassificationEvaluator, Evaluator
 from mlproject.trainers import ClassificationTrainer, Trainer
 from mlproject.utils import get_logger
@@ -43,6 +43,7 @@ class Learner(nn.Module):
         trainers: Union[List[Trainer], Trainer] = None,
         evaluators: Union[List[Evaluator], Evaluator] = None,
         callbacks: Union[List[Callback], Callback] = None,
+        print_model_parameters: bool = False,
     ):
         super().__init__()
         self.experiment_name = experiment_name
@@ -132,6 +133,10 @@ class Learner(nn.Module):
                 raise ValueError(
                     f"Checkpoint path {checkpoint_path} does not exist, please check your resume= argument"
                 )
+            self.load_checkpoint(checkpoint_path=checkpoint_path)
+
+        elif isinstance(resume, Path):
+            self.load_checkpoint(checkpoint_path=resume)
 
         elif resume is True:
             checkpoint_path = Path(self.checkpoints_dir / "latest.pt")
@@ -171,10 +176,12 @@ class Learner(nn.Module):
                 test_dataloader = self.accelerator.prepare(test_dataloader)
                 self.test_dataloaders.append(test_dataloader)
 
-        for key, value in self.named_parameters():
-            logger.info(
-                f"Parameter {key} -> {value.shape} requires grad {value.requires_grad}"
-            )
+        if print_model_parameters:
+
+            for key, value in self.named_parameters():
+                logger.info(
+                    f"Parameter {key} -> {value.shape} requires grad {value.requires_grad}"
+                )
 
     def run(self):
         self.train()
@@ -383,7 +390,7 @@ class Learner(nn.Module):
 
         if train_dataloader is not None:
             self.start_training(train_dataloader=train_dataloader)
-            with tqdm(total=self.train_iters) as pbar_steps:
+            with tqdm(initial=self.step_idx, total=self.train_iters) as pbar_steps:
                 for epoch_idx in range(self.epoch_idx, self.train_epochs):
                     self.epoch_idx = epoch_idx
 

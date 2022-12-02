@@ -171,6 +171,7 @@ class Callback(object):
     ) -> None:
         pass
 
+
 class CallbackHandler(Callback):
     def __init__(self, callbacks: List[Callback]) -> None:
         super().__init__()
@@ -370,8 +371,7 @@ class CallbackHandler(Callback):
         for callback in self.callbacks:
             callback.on_load_checkpoint(model, optimizers, experiment, checkpoint_path)
 
-   
- 
+
 class UploadCheckpointsToHuggingFace(Callback):
     def __init__(self, repo_name: str, repo_owner: str):
         from huggingface_hub import HfApi
@@ -393,4 +393,3 @@ class UploadCheckpointsToHuggingFace(Callback):
             path_or_fileobj=checkpoint_path.as_posix(),
             path_in_repo=f"checkpoints/{checkpoint_path.name}",
         )
- 
