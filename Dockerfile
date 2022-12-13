@@ -17,12 +17,12 @@ RUN mamba uninstall pytorch -y
 RUN mamba install pytorch torchvision torchaudio pytorch-cuda=11.6 -c pytorch -c nvidia -y
 RUN mamba install -c conda-forge timm accelerate datasets transformers -y
 
-ADD . /app/
-RUN git config --global --add safe.directory /app/
-
 RUN apt install kubectl -y
 RUN apt install google-cloud-sdk-gke-gcloud-auth-plugin -y
 
 RUN echo y | pip install git+https://github.com/BayesWatch/bwatchcompute@main
 
-ENTRYPOINT ["/bin/bash", "/workspace/minimal-ml-template/entrypoint.sh"]
+ADD . /app/
+RUN git config --global --add safe.directory /app/
+
+ENTRYPOINT ["/bin/bash", "/app/entrypoint.sh"]
