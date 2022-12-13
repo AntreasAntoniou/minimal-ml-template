@@ -22,10 +22,6 @@ export USER_NAME="Antreas Antoniou"
 export EXPERIMENT_NAME_PREFIX="debug-kube-0"
 export DOCKER_IMAGE_PATH="ghcr.io/bayeswatch/minimal-ml-template:latest"
 
-gcloud config set project $CLUSTER_PROJECT
-gcloud container clusters get-credentials $CLUSTER_NAME \
-    --zone $CLUSTER_ZONE --project $CLUSTER_PROJECT
-
 mkdir -p "~/.huggingface"
 touch "~/.huggingface/token"
 

@@ -10,7 +10,7 @@ def get_scripts(exp_name: str, seeds: List[int]):
 
     script_list = []
     for seed in seeds:
-        current_script_text = f"conda run -n main accelerate-launch --mixed_precision=bf16 /workspace/minimal-ml-template/mlproject/run.py exp_name={exp_name} train_batch_size=300 eval_batch_size=300 seed={seed}"
+        current_script_text = f"conda run -n main accelerate-launch --mixed_precision=bf16 /app/mlproject/run.py exp_name={exp_name} train_batch_size=300 eval_batch_size=300 seed={seed}"
         script_list.append(current_script_text)
 
     return script_list
