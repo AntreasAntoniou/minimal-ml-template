@@ -229,6 +229,8 @@ def run(cfg: BaseConfig) -> None:
 
     config_dict = OmegaConf.to_container(cfg, resolve=True)
     wandb_args["config"] = config_dict
+
+    wandb.login(key=os.getenv("WANDB_API_KEY"))
     wandb.init(**wandb_args)  # init wandb and log config
 
     upload_code_to_wandb(cfg.code_dir)  # log code to wandb

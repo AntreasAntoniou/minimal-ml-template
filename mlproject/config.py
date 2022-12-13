@@ -102,7 +102,6 @@ class BaseConfig:
     # Must be passed at command line -- neccesary arguments
 
     exp_name: str = MISSING
-    hf_username: str = MISSING
 
     # Defaults for these are provided in the collect_config_store method,
     # but will be often overridden at command line
@@ -117,14 +116,18 @@ class BaseConfig:
 
     wandb_args: Any = MISSING
 
+    hf_username: str = (
+        os.environ["HF_USERNAME"] if "HF_USERNAME" in os.environ else MISSING
+    )
+
     seed: int = 42
 
     freeze_backbone: bool = False
     resume: bool = False
     resume_from_checkpoint: Optional[int] = None
     print_config: bool = False
-    train_batch_size: int = 16
-    eval_batch_size: int = 100
+    train_batch_size: int = 300
+    eval_batch_size: int = 300
     num_workers: int = multiprocessing.cpu_count()
     train: bool = True
     test: bool = False

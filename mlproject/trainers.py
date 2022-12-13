@@ -4,6 +4,7 @@ from typing import Any, Dict, Iterator, Tuple
 import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
+from accelerate import Accelerator
 from hydra_zen import instantiate
 
 from mlproject.callbacks import Interval
@@ -44,6 +45,7 @@ class ClassificationTrainer(Trainer):
         scheduler_interval: str = Interval.STEP,
     ):
         super().__init__()
+
         self.optimizer = optimizer
         self.scheduler = scheduler
         self.epoch_metrics = {}
@@ -57,7 +59,7 @@ class ClassificationTrainer(Trainer):
 
     @collect_metrics
     def training_step(
-        self, model, batch, batch_idx, step_idx, epoch_idx
+        self, model, batch, batch_idx, step_idx, epoch_idx, accelerator: Accelerator
     ) -> TrainerOutput:
         model.train()
         self.optimizer.zero_grad()
@@ -65,7 +67,7 @@ class ClassificationTrainer(Trainer):
         accuracy = (logits.argmax(dim=-1) == batch["labels"]).float().mean()
         opt_loss = F.cross_entropy(logits, batch["labels"])
         loss = opt_loss.detach()
-        opt_loss.backward()
+        accelerator.backward(loss=opt_loss)
         self.optimizer.step()
 
         if self.scheduler is not None:

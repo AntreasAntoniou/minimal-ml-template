@@ -209,6 +209,7 @@ class Learner(nn.Module):
                 batch_idx=batch_idx,
                 step_idx=self.step_idx,
                 epoch_idx=self.epoch_idx,
+                accelerator=self.accelerator,
             )
 
         self.callback_handler.on_batch_end(model, batch, batch_idx)
