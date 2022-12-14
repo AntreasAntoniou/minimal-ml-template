@@ -17,15 +17,17 @@ def get_scripts(exp_name: str, seeds: List[int]):
 
 
 if __name__ == "__main__":
-    from bwatchcompute import Job
+    from bwatchcompute.kubernetes.job import Job
 
-    script_list = get_scripts(exp_name=os.getenv("EXPERIMENT_NAME_PREFIX"), seeds=[42, 5, 10])
+    script_list = get_scripts(
+        exp_name=os.getenv("EXPERIMENT_NAME_PREFIX"), seeds=[42, 5, 10]
+    )
 
     exp = Job(
         name=os.getenv("EXPERIMENT_NAME_PREFIX"),
         script_list=script_list,
         docker_image_path=os.getenv("DOCKER_IMAGE_PATH"),
-        secret_variables={os.getenv("NAMESPACE"): "WANDB_API_KEY"},
+        secret_variables={os.getenv("EXPERIMENT_NAME_PREFIX"): "WANDB_API_KEY"},
         environment_variables={"USER_NAME": os.getenv("USER_NAME")},
         num_repeat_experiment=3,
     )
