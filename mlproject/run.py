@@ -46,7 +46,7 @@ from torch.utils.data import Dataset
 
 from mlproject.config import BaseConfig, collect_config_store
 from mlproject.models import ModelAndTransform
-from mlproject.utils import get_logger, pretty_config
+from mlproject.utils import get_logger, pretty_config, set_seed
 
 config_store = collect_config_store()
 
@@ -189,6 +189,7 @@ def upload_code_to_wandb(code_dir: Union[pathlib.Path, str]):
 def run(cfg: BaseConfig) -> None:
     print(pretty_config(cfg, resolve=True))
 
+    set_seed(seed=cfg.seed)
     ckpt_path = create_hf_model_repo_and_download_maybe(cfg)
 
     model_and_transform: ModelAndTransform = instantiate(cfg.model)
