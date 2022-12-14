@@ -4,13 +4,14 @@ import os
 from pathlib import Path
 from typing import List
 from rich import print
+import datetime
 
 
 def get_scripts(exp_name: str, seeds: List[int]):
 
     script_list = []
     for seed in seeds:
-        current_script_text = f"conda run -n main --live-stream /bin/bash /app/entrypoint.sh; conda run -n main --live-stream accelerate-launch --mixed_precision=bf16 /app/mlproject/run.py exp_name={exp_name} train_batch_size=300 eval_batch_size=300 seed={seed}"
+        current_script_text = f"chmod -R 777 /app/; bash /app/entrypoint.sh; conda run -n main --live-stream accelerate-launch --mixed_precision=bf16 /app/mlproject/run.py exp_name={exp_name} train_batch_size=300 eval_batch_size=300 seed={seed}"
         script_list.append(current_script_text)
 
     return script_list
@@ -22,9 +23,11 @@ if __name__ == "__main__":
     script_list = get_scripts(
         exp_name=os.getenv("EXPERIMENT_NAME_PREFIX"), seeds=[42, 5, 10]
     )
+    # write a one liner that picks up date and time and converts them into a number
+    datetime_seed = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
 
     exp = Job(
-        name=os.getenv("EXPERIMENT_NAME_PREFIX"),
+        name=f"{datetime_seed}-{os.getenv('EXPERIMENT_NAME_PREFIX')}",
         script_list=script_list,
         docker_image_path=os.getenv("DOCKER_IMAGE_PATH"),
         secret_variables={os.getenv("EXPERIMENT_NAME_PREFIX"): "WANDB_API_KEY"},
