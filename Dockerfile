@@ -23,6 +23,7 @@ RUN apt install google-cloud-sdk-gke-gcloud-auth-plugin -y
 RUN echo y | pip install git+https://github.com/BayesWatch/bwatchcompute@main
 
 ADD . /app/
+
 RUN git config --global --add safe.directory /app/
 
 ENTRYPOINT ["/bin/bash", "/app/entrypoint.sh"]
