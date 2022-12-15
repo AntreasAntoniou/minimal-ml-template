@@ -10,6 +10,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+import wandb
 
 from mlproject.callbacks import Callback, CallbackHandler, Interval
 from mlproject.evaluators import ClassificationEvaluator, Evaluator
@@ -299,7 +300,6 @@ class Learner(nn.Module):
                 step_idx=self.step_idx,
                 val_dataloaders=val_dataloaders,
             )
-
         logger.info("Validation finished 🎉")
 
     def start_testing(self, test_dataloaders: List[DataLoader]):

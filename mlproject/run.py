@@ -190,7 +190,20 @@ def upload_code_to_wandb(code_dir: Union[pathlib.Path, str], experiment_tracker:
 
 @hydra.main(config_path=None, config_name="config", version_base=None)
 def run(cfg: BaseConfig) -> None:
+    wandb_args = {
+        key: value for key, value in cfg.wandb_args.items() if key != "_target_"
+    }
+
+    config_dict = OmegaConf.to_container(cfg, resolve=True)
+    wandb_args["config"] = config_dict
+
+    experiment_tracker = wandb.init(**wandb_args)  # init wandb and log config
+
     print(pretty_config(cfg, resolve=True))
+
+    upload_code_to_wandb(
+        code_dir=cfg.code_dir, experiment_tracker=experiment_tracker
+    )  # log code to wandb
 
     set_seed(seed=cfg.seed)
     ckpt_path = create_hf_model_repo_and_download_maybe(cfg)
@@ -226,19 +239,6 @@ def run(cfg: BaseConfig) -> None:
         batch_size=cfg.eval_batch_size,
         shuffle=False,
     )
-
-    wandb_args = {
-        key: value for key, value in cfg.wandb_args.items() if key != "_target_"
-    }
-
-    config_dict = OmegaConf.to_container(cfg, resolve=True)
-    wandb_args["config"] = config_dict
-
-    experiment_tracker = wandb.init(**wandb_args)  # init wandb and log config
-
-    upload_code_to_wandb(
-        code_dir=cfg.code_dir, experiment_tracker=experiment_tracker
-    )  # log code to wandb
 
     params = (
         model.classifier.parameters() if cfg.freeze_backbone else model.parameters()

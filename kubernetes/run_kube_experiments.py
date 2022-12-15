@@ -11,7 +11,7 @@ def get_scripts(exp_name: str, batch_sizes: List[int]):
 
     script_list = []
     for batch_size in batch_sizes:
-        current_script_text = f"/opt/conda/envs/main/bin/accelerate-launch --mixed_precision=bf16 /app/mlproject/run.py exp_name={exp_name} train_batch_size={batch_size} eval_batch_size={batch_size}"
+        current_script_text = f"/opt/conda/envs/main/bin/accelerate-launch --mixed_precision=bf16 /app/mlproject/run.py exp_name={exp_name} train_batch_size={batch_size} eval_batch_size={batch_size} code_dir=/app/"
         script_list.append(current_script_text)
 
     return script_list
@@ -36,6 +36,7 @@ if __name__ == "__main__":
             "HF_USERNAME": os.getenv("HF_USERNAME"),
             "WANDB_ENTITY": os.getenv("WANDB_ENTITY"),
             "WANDB_PROJECT": os.getenv("WANDB_PROJECT"),
+            "CODE_DIR": os.getenv("CODE_DIR"),
             "EXPERIMENTS_DIR": os.getenv("EXPERIMENTS_DIR"),
             "EXPERIMENT_DIR": os.getenv("EXPERIMENT_DIR"),
             "DATASET_DIR": os.getenv("DATASET_DIR"),

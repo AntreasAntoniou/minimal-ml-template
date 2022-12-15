@@ -21,6 +21,7 @@ from .data import build_dataset
 from .models import build_model
 
 CHECKPOINT_DIR = "${hf_repo_dir}"
+NUM_WORKERS = "${num_workers}"
 HF_USERNAME = "${hf_username}"
 CODE_DIR = "${code_dir}"
 DATASET_DIR = "${data_dir}"
@@ -147,7 +148,9 @@ class BaseConfig:
     current_experiment_dir: str = "${root_experiment_dir}/${exp_name}"
     repo_path: str = "${hf_username}/${exp_name}"
     hf_repo_dir: str = "${current_experiment_dir}/repo"
-    code_dir: str = "${hydra:runtime.cwd}"
+    code_dir: str = (
+        os.environ["CODE_DIR"] if "CODE_DIR" in os.environ else "${hydra:runtime.cwd}"
+    )
 
 
 # Using hydra might look a bit more verbose but it saves having to manually define
@@ -185,7 +188,7 @@ def collect_config_store():
         name="default",
         node=dataloader_config(
             batch_size=TRAIN_BATCH_SIZE,
-            num_workers=multiprocessing.cpu_count(),
+            num_workers=NUM_WORKERS,
             pin_memory=True,
             shuffle=True,
         ),
