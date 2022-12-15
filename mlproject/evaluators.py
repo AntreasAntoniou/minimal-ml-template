@@ -8,6 +8,7 @@ from torch.utils.data import DataLoader
 
 from attr import field
 from hydra_zen import instantiate
+import wandb
 
 from .decorators import collect_metrics
 from .utils import get_logger
@@ -39,9 +40,10 @@ class EvaluatorOutput:
 
 
 class ClassificationEvaluator(Evaluator):
-    def __init__(self):
+    def __init__(self, experiment_tracker: wandb.wandb_sdk.wandb_run.Run = None):
         super().__init__()
         self.epoch_metrics = {}
+        self.experiment_tracker = experiment_tracker
 
     def validation_step(self, model, batch, batch_idx, step_idx, epoch_idx):
         model.eval()

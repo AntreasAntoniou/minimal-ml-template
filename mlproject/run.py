@@ -75,6 +75,9 @@ def create_hf_model_repo_and_download_maybe(cfg: BaseConfig):
 
     if not pathlib.Path(cfg.hf_repo_dir).exists():
         pathlib.Path(cfg.hf_repo_dir).mkdir(parents=True, exist_ok=True)
+        pathlib.Path(pathlib.Path(cfg.hf_repo_dir) / "checkpoints").mkdir(
+            parents=True, exist_ok=True
+        )
 
     try:
         if cfg.download_checkpoint_with_name is not None:
@@ -231,7 +234,6 @@ def run(cfg: BaseConfig) -> None:
     config_dict = OmegaConf.to_container(cfg, resolve=True)
     wandb_args["config"] = config_dict
 
-    wandb.login(key=os.getenv("WANDB_API_KEY"))
     wandb.init(**wandb_args)  # init wandb and log config
 
     upload_code_to_wandb(cfg.code_dir)  # log code to wandb
@@ -254,8 +256,12 @@ def run(cfg: BaseConfig) -> None:
     learner: Learner = instantiate(
         cfg.learner,
         model=model,
-        trainers=[ClassificationTrainer(optimizer=optimizer, scheduler=scheduler)],
-        evaluators=[ClassificationEvaluator()],
+        trainers=[
+            ClassificationTrainer(
+                optimizer=optimizer, scheduler=scheduler, experiment_tracker=wandb
+            )
+        ],
+        evaluators=[ClassificationEvaluator(experiment_tracker=wandb)],
         train_dataloader=train_dataloader,
         val_dataloaders=[val_dataloader],
         callbacks=instantiate_callbacks(cfg.callbacks),

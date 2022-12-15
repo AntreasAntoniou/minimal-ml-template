@@ -7,11 +7,11 @@ from rich import print
 import datetime
 
 
-def get_scripts(exp_name: str, seeds: List[int]):
+def get_scripts(exp_name: str, batch_sizes: List[int]):
 
     script_list = []
-    for seed in seeds:
-        current_script_text = f"chmod -R 777 /app/; bash /app/entrypoint.sh; conda run -n main --live-stream accelerate-launch --mixed_precision=bf16 /app/mlproject/run.py exp_name={exp_name} train_batch_size=300 eval_batch_size=300 seed={seed}"
+    for batch_size in batch_sizes:
+        current_script_text = f"/opt/conda/envs/main/bin/accelerate-launch --mixed_precision=bf16 /app/mlproject/run.py exp_name={exp_name} train_batch_size={batch_size} eval_batch_size={batch_size}"
         script_list.append(current_script_text)
 
     return script_list
@@ -21,7 +21,7 @@ if __name__ == "__main__":
     from bwatchcompute.kubernetes.job import Job
 
     script_list = get_scripts(
-        exp_name=os.getenv("EXPERIMENT_NAME_PREFIX"), seeds=[42, 5, 10]
+        exp_name=os.getenv("EXPERIMENT_NAME_PREFIX"), batch_sizes=[75, 150, 300]
     )
     # write a one liner that picks up date and time and converts them into a number
     datetime_seed = datetime.datetime.now().strftime("%Y%m%d%H%M%S")

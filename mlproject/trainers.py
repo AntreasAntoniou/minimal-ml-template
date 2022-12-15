@@ -6,6 +6,7 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from accelerate import Accelerator
 from hydra_zen import instantiate
+import wandb
 
 from mlproject.callbacks import Interval
 
@@ -43,11 +44,13 @@ class ClassificationTrainer(Trainer):
         optimizer: torch.optim.Optimizer,
         scheduler: torch.optim.lr_scheduler._LRScheduler = None,
         scheduler_interval: str = Interval.STEP,
+        experiment_tracker: wandb.wandb_sdk.wandb_run.Run = None,
     ):
         super().__init__()
 
         self.optimizer = optimizer
         self.scheduler = scheduler
+        self.experiment_tracker = experiment_tracker
         self.epoch_metrics = {}
 
         if self.scheduler is not None:

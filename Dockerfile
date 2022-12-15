@@ -19,6 +19,7 @@ RUN mamba install -c conda-forge timm accelerate datasets transformers -y
 
 RUN apt install kubectl -y
 RUN apt install google-cloud-sdk-gke-gcloud-auth-plugin -y
+ENV USE_GKE_GCLOUD_AUTH_PLUGIN True
 
 RUN echo y | pip install git+https://github.com/BayesWatch/bwatchcompute@main
 
@@ -27,4 +28,6 @@ ADD . /app/
 
 RUN git config --global --add safe.directory /app/
 
-ENTRYPOINT ["/bin/bash", "/app/entrypoint.sh"]
+RUN echo y | pip install /app/
+
+ENTRYPOINT ["/bin/bash"]
