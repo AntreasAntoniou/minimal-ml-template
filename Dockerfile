@@ -5,7 +5,7 @@ RUN apt upgrade -y
 
 RUN apt install aptitude tree -y
 RUN apt install fish -y
-RUN echo y | pip install tabulate nvitop hydra_zen
+RUN echo y | pip install tabulate nvitop hydra_zen wandb --upgrade
 RUN mamba install -c conda-forge starship jupyterlab black -y
 
 RUN git lfs install
