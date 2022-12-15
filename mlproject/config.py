@@ -128,7 +128,7 @@ class BaseConfig:
     print_config: bool = False
     train_batch_size: int = 300
     eval_batch_size: int = 300
-    num_workers: int = multiprocessing.cpu_count()
+    num_workers: int = multiprocessing.cpu_count() // 4
     train: bool = True
     test: bool = False
     download_latest: bool = True

@@ -27,7 +27,7 @@ dotenv.load_dotenv(override=True, verbose=True)
 
 
 import pathlib
-from typing import Callable, List, Optional, Union
+from typing import Any, Callable, List, Optional, Union
 
 import dotenv
 import hydra
@@ -176,7 +176,7 @@ def create_hf_model_repo_and_download_maybe(cfg: BaseConfig):
         return None
 
 
-def upload_code_to_wandb(code_dir: Union[pathlib.Path, str]):
+def upload_code_to_wandb(code_dir: Union[pathlib.Path, str], experiment_tracker: Any):
     if isinstance(code_dir, str):
         code_dir = pathlib.Path(code_dir)
 
@@ -185,7 +185,7 @@ def upload_code_to_wandb(code_dir: Union[pathlib.Path, str]):
     for path in code_dir.resolve().rglob("*.py"):
         code.add_file(str(path), name=str(path.relative_to(code_dir)))
 
-    wandb.log_artifact(code)
+    experiment_tracker.log_artifact(code)
 
 
 @hydra.main(config_path=None, config_name="config", version_base=None)
@@ -234,9 +234,11 @@ def run(cfg: BaseConfig) -> None:
     config_dict = OmegaConf.to_container(cfg, resolve=True)
     wandb_args["config"] = config_dict
 
-    wandb.init(**wandb_args)  # init wandb and log config
+    experiment_tracker = wandb.init(**wandb_args)  # init wandb and log config
 
-    upload_code_to_wandb(cfg.code_dir)  # log code to wandb
+    upload_code_to_wandb(
+        code_dir=cfg.code_dir, experiment_tracker=experiment_tracker
+    )  # log code to wandb
 
     params = (
         model.classifier.parameters() if cfg.freeze_backbone else model.parameters()
@@ -258,10 +260,12 @@ def run(cfg: BaseConfig) -> None:
         model=model,
         trainers=[
             ClassificationTrainer(
-                optimizer=optimizer, scheduler=scheduler, experiment_tracker=wandb
+                optimizer=optimizer,
+                scheduler=scheduler,
+                experiment_tracker=experiment_tracker,
             )
         ],
-        evaluators=[ClassificationEvaluator(experiment_tracker=wandb)],
+        evaluators=[ClassificationEvaluator(experiment_tracker=experiment_tracker)],
         train_dataloader=train_dataloader,
         val_dataloaders=[val_dataloader],
         callbacks=instantiate_callbacks(cfg.callbacks),
