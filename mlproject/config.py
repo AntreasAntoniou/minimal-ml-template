@@ -21,6 +21,7 @@ from .data import build_dataset
 from .models import build_model
 
 CHECKPOINT_DIR = "${hf_repo_dir}"
+NUM_WORKERS = "${num_workers}"
 HF_USERNAME = "${hf_username}"
 CODE_DIR = "${code_dir}"
 DATASET_DIR = "${data_dir}"
@@ -185,7 +186,7 @@ def collect_config_store():
         name="default",
         node=dataloader_config(
             batch_size=TRAIN_BATCH_SIZE,
-            num_workers=multiprocessing.cpu_count(),
+            num_workers=NUM_WORKERS,
             pin_memory=True,
             shuffle=True,
         ),
