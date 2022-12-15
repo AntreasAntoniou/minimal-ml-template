@@ -11,11 +11,14 @@
         docker push ghcr.io/OWNER/IMAGE_NAME:VERSION
         ```
         Replacing YOUR_TOKEN with your github api key, USERNAME with your github username, SOURCE_IMAGE_NAME:VERSION with the local name and version of the image you build, and TARGET_OWNER/TARGET_IMAGE_NAME:VERSION with the target github owner (TARGET_OWNER) under which you want to push the package, along with a package name (TARGET_IMAGE_NAME) and a version (VERSION)
-    5. Once your image has been pushed to a relevant image registry, you should fill in the variables in the file [setup_variables.sh](setup_variables.sh) file with their respective values, and then export the variables to your local VM and the kubernetes cluster by running:
-        ```bash
-        source kubernetes/setup_variables.sh
-        bash kubernetes/setup_secrets.sh
-        ```
-    6. Modify the [runner script](run_kube_experiments.py) to generate all the experiment commands you'd like to be launched in the kubernetes cluster by modifying the `get_scripts()` method.
-    7. 
-    
+ 2. Once your image has been pushed to a relevant image registry, you should fill in the variables in the file [setup_variables.sh](setup_variables.sh) file with their respective values, and then export the variables to your local VM and the kubernetes cluster by running:
+    ```bash
+    source kubernetes/setup_variables.sh
+    bash kubernetes/setup_kubernetes_variables.sh
+    bash kubernetes/setup_secrets.sh
+    ```
+ 3. Modify the [runner script](run_kube_experiments.py) to generate all the experiment commands you'd like to be launched in the kubernetes cluster by modifying the `get_scripts()` method.
+ 4. Run the runner script to launch your experiments:
+    ```bash
+    python kubernetes/run_kube_experiments.py
+    ```
