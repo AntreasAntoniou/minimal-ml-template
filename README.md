@@ -8,3 +8,21 @@ This repo implements a **minimal** machine learning template, that is fully feat
 4. It has a minimal **callback** based boilerplate that allows a user to easily inject any functionality at predefined places in the system without spagettifying the code.
 5. It uses [HuggingFace Models](https://huggingface.co/models) and [Datasets](https://huggingface.co/docs/datasets/index) to streamline building/loading of models, and datasets, but is also not forcing you to use those, allowing for very easy injection of any models and datasets you care about, assuming you use models implemented under PyTorch's `nn.Module` and `Dataset` classes.
 6. It provides plug and play functionality that allows easy hyperparameter search on Kubernetes clusters using [BWatchCompute](https://github.com/BayesWatch/bwatchcompute) and some readily available scripts and yaml templates.
+
+## The Software Stack
+
+## Getting Started
+
+### Installation
+
+## Running experiments locally
+
+## Making any class and/or function configurable via Hydra-Zen
+
+## Adding a new model
+
+## Adding a new dataset
+
+## Adding a new callback
+
+## Running a kubernetes hyperparameter search
