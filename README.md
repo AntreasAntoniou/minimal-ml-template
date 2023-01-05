@@ -17,6 +17,12 @@ This repo implements a **minimal** machine learning template, that is fully feat
 
 ## Running experiments locally
 
+## Modify the experiment configuration from the command line
+
+## Tracking experiments with wandb
+
+## Setting up the usage of huggingface model and dataset hubs so you can store your model weights and datasets
+
 ## Making any class and/or function configurable via Hydra-Zen
 
 ## Adding a new model
