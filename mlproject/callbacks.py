@@ -1,16 +1,18 @@
 import os
 from dataclasses import dataclass
 from pathlib import Path
+import threading
 from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
-import wandb
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import wandb
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader
 from tqdm.rich import tqdm
+
 
 from .utils import get_logger
 
@@ -67,10 +69,14 @@ class Callback(object):
     ) -> None:
         pass
 
-    def on_batch_start(self, model: nn.Module, batch: Dict, batch_idx: int) -> None:
+    def on_batch_start(
+        self, model: nn.Module, batch: Dict, batch_idx: int
+    ) -> None:
         pass
 
-    def on_batch_end(self, model: nn.Module, batch: Dict, batch_idx: int) -> None:
+    def on_batch_end(
+        self, model: nn.Module, batch: Dict, batch_idx: int
+    ) -> None:
         pass
 
     def on_training_step_start(
@@ -245,11 +251,15 @@ class CallbackHandler(Callback):
                 test_dataloaders,
             )
 
-    def on_batch_start(self, model: nn.Module, batch: Dict, batch_idx: int) -> None:
+    def on_batch_start(
+        self, model: nn.Module, batch: Dict, batch_idx: int
+    ) -> None:
         for callback in self.callbacks:
             callback.on_batch_start(model, batch, batch_idx)
 
-    def on_batch_end(self, model: nn.Module, batch: Dict, batch_idx: int) -> None:
+    def on_batch_end(
+        self, model: nn.Module, batch: Dict, batch_idx: int
+    ) -> None:
         for callback in self.callbacks:
             callback.on_batch_end(model, batch, batch_idx)
 
@@ -359,7 +369,9 @@ class CallbackHandler(Callback):
         checkpoint_path: Path,
     ) -> None:
         for callback in self.callbacks:
-            callback.on_save_checkpoint(model, optimizers, experiment, checkpoint_path)
+            callback.on_save_checkpoint(
+                model, optimizers, experiment, checkpoint_path
+            )
 
     def on_load_checkpoint(
         self,
@@ -369,7 +381,27 @@ class CallbackHandler(Callback):
         checkpoint_path: Path,
     ) -> None:
         for callback in self.callbacks:
-            callback.on_load_checkpoint(model, optimizers, experiment, checkpoint_path)
+            callback.on_load_checkpoint(
+                model, optimizers, experiment, checkpoint_path
+            )
+
+
+class UploadCheckpointToHuggingFaceBackground(threading.Thread):
+    def __init__(self, repo_name: str, repo_owner: str, checkpoint_path: Path):
+        from huggingface_hub import HfApi
+
+        super().__init__()
+        self.repo_name = repo_name
+        self.repo_owner = repo_owner
+        self.checkpoint_path = checkpoint_path
+        self.hf_api = HfApi()
+
+    def run(self):
+        self.hf_api.upload_folder(
+            repo_id=f"{self.repo_owner}/{self.repo_name}",
+            folder_path=self.checkpoint_path,
+            path_in_repo=f"checkpoints/{self.checkpoint_path.name}",
+        )
 
 
 class UploadCheckpointsToHuggingFace(Callback):
@@ -388,8 +420,10 @@ class UploadCheckpointsToHuggingFace(Callback):
         experiment: Any,
         checkpoint_path: Path,
     ) -> None:
-        self.hf_api.upload_file(
-            repo_id=f"{self.repo_owner}/{self.repo_name}",
-            path_or_fileobj=checkpoint_path.as_posix(),
-            path_in_repo=f"checkpoints/{checkpoint_path.name}",
+        background_upload_thread = UploadCheckpointToHuggingFaceBackground(
+            repo_name=self.repo_name,
+            repo_owner=self.repo_owner,
+            checkpoint_path=checkpoint_path,
         )
+        background_upload_thread.start()
+        experiment.background_threads.append(background_upload_thread)

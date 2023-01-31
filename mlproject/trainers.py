@@ -62,7 +62,13 @@ class ClassificationTrainer(Trainer):
 
     @collect_metrics
     def training_step(
-        self, model, batch, batch_idx, step_idx, epoch_idx, accelerator: Accelerator
+        self,
+        model,
+        batch,
+        batch_idx,
+        step_idx,
+        epoch_idx,
+        accelerator: Accelerator,
     ) -> TrainerOutput:
         model.train()
         self.optimizer.zero_grad()

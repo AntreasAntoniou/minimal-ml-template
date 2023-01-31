@@ -56,7 +56,9 @@ HFModelUploadConfig = builds(
     UploadCheckpointsToHuggingFace, populate_full_signature=True
 )
 
-hf_upload = HFModelUploadConfig(repo_name=EXPERIMENT_NAME, repo_owner=HF_USERNAME)
+hf_upload = HFModelUploadConfig(
+    repo_name=EXPERIMENT_NAME, repo_owner=HF_USERNAME
+)
 
 adamw_optimizer_config = builds(
     torch.optim.AdamW,
@@ -79,7 +81,9 @@ model_config = builds(build_model, populate_full_signature=True)
 
 dataset_config = builds(build_dataset, populate_full_signature=True)
 
-dataloader_config = builds(DataLoader, dataset=None, populate_full_signature=True)
+dataloader_config = builds(
+    DataLoader, dataset=None, populate_full_signature=True
+)
 
 learner_config = builds(Learner, populate_full_signature=True)
 
@@ -127,9 +131,9 @@ class BaseConfig:
     resume: bool = False
     resume_from_checkpoint: Optional[int] = None
     print_config: bool = False
-    train_batch_size: int = 300
-    eval_batch_size: int = 300
-    num_workers: int = multiprocessing.cpu_count() // 4
+    train_batch_size: int = 125
+    eval_batch_size: int = 180
+    num_workers: int = multiprocessing.cpu_count() // 2
     train: bool = True
     test: bool = False
     download_latest: bool = True
@@ -149,7 +153,9 @@ class BaseConfig:
     repo_path: str = "${hf_username}/${exp_name}"
     hf_repo_dir: str = "${current_experiment_dir}/repo"
     code_dir: str = (
-        os.environ["CODE_DIR"] if "CODE_DIR" in os.environ else "${hydra:runtime.cwd}"
+        os.environ["CODE_DIR"]
+        if "CODE_DIR" in os.environ
+        else "${hydra:runtime.cwd}"
     )
 
 
@@ -167,7 +173,9 @@ def collect_config_store():
         num_classes=101,
     )
 
-    food101_config = dataset_config(dataset_name="food101", data_dir=DATASET_DIR)
+    food101_config = dataset_config(
+        dataset_name="food101", data_dir=DATASET_DIR
+    )
 
     ###################################################################################
 
@@ -194,7 +202,9 @@ def collect_config_store():
         ),
     )
 
-    config_store.store(group="optimizer", name="adamw", node=adamw_optimizer_config)
+    config_store.store(
+        group="optimizer", name="adamw", node=adamw_optimizer_config
+    )
 
     config_store.store(
         group="scheduler",
@@ -209,9 +219,13 @@ def collect_config_store():
         node=learner_config,
     )
 
-    config_store.store(group="callbacks", name="default", node=default_callbacks)
+    config_store.store(
+        group="callbacks", name="default", node=default_callbacks
+    )
 
-    config_store.store(group="wandb_args", name="default", node=wandb_args_default)
+    config_store.store(
+        group="wandb_args", name="default", node=wandb_args_default
+    )
 
     config_store.store(
         group="hydra",
@@ -253,7 +267,9 @@ def collect_config_store():
                 root={"handlers": ["rich"], "level": "INFO"},
                 disable_existing_loggers=False,
             ),
-            run={"dir": "${current_experiment_dir}/hydra-run/${now:%Y-%m-%d_%H-%M-%S}"},
+            run={
+                "dir": "${current_experiment_dir}/hydra-run/${now:%Y-%m-%d_%H-%M-%S}"
+            },
             sweep={
                 "dir": "${current_experiment_dir}/hydra-multirun/${now:%Y-%m-%d_%H-%M-%S}",
                 "subdir": "${hydra.job.num}",

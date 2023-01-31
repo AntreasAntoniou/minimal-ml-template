@@ -32,3 +32,13 @@ This repo implements a **minimal** machine learning template, that is fully feat
 ## Adding a new callback
 
 ## Running a kubernetes hyperparameter search
+
+## To Remember
+
+Ensure run.env is sourced
+Ensure wandb and huggingface usernames and tokens are set
+Ensure mlproject is installed with -e for dev, and without for production
+Ensure removal of dotenv from docker
+Ensure validation uses torch.no_grad
+Ensure other changes in CAPIT of importance are added, perhaps accelerate.gather for example
+

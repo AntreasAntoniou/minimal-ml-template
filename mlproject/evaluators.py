@@ -5,6 +5,7 @@ from typing import Any, Iterator, List, Tuple
 import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
+from accelerate import Accelerator
 
 from attr import field
 from hydra_zen import instantiate
@@ -40,12 +41,22 @@ class EvaluatorOutput:
 
 
 class ClassificationEvaluator(Evaluator):
-    def __init__(self, experiment_tracker: wandb.wandb_sdk.wandb_run.Run = None):
+    def __init__(
+        self, experiment_tracker: wandb.wandb_sdk.wandb_run.Run = None
+    ):
         super().__init__()
         self.epoch_metrics = {}
         self.experiment_tracker = experiment_tracker
 
-    def validation_step(self, model, batch, batch_idx, step_idx, epoch_idx):
+    def validation_step(
+        self,
+        model,
+        batch,
+        batch_idx,
+        step_idx,
+        epoch_idx,
+        accelerator: Accelerator,
+    ):
         model.eval()
         logits = model(batch["pixel_values"]).logits
         accuracy = (logits.argmax(dim=-1) == batch["labels"]).float().mean()
@@ -61,7 +72,15 @@ class ClassificationEvaluator(Evaluator):
             metrics=metrics,
         )
 
-    def test_step(self, model, batch, batch_idx, step_idx):
+    def test_step(
+        self,
+        model,
+        batch,
+        batch_idx,
+        step_idx,
+        epoch_idx,
+        accelerator: Accelerator,
+    ):
         model.eval()
         logits = model(batch["pixel_values"])
         accuracy = (logits.argmax(dim=-1) == batch["labels"]).float().mean()
@@ -87,12 +106,17 @@ class ClassificationEvaluator(Evaluator):
     ):
         self.epoch_metrics = {}
         return EvaluatorOutput(
-            step_idx=step_idx, phase_name="validation", metrics=self.epoch_metrics
+            step_idx=step_idx,
+            phase_name="validation",
+            metrics=self.epoch_metrics,
         )
 
     @collect_metrics
     def start_testing(
-        self, epoch_idx: int, step_idx: int, test_dataloaders: List[DataLoader] = None
+        self,
+        epoch_idx: int,
+        step_idx: int,
+        test_dataloaders: List[DataLoader] = None,
     ):
         self.epoch_metrics = {}
         return EvaluatorOutput(
@@ -101,7 +125,10 @@ class ClassificationEvaluator(Evaluator):
 
     @collect_metrics
     def end_validation(
-        self, epoch_idx: int, step_idx: int, val_dataloaders: List[DataLoader] = None
+        self,
+        epoch_idx: int,
+        step_idx: int,
+        val_dataloaders: List[DataLoader] = None,
     ):
         epoch_metrics = {}
         for key, value in self.epoch_metrics.items():
@@ -114,7 +141,10 @@ class ClassificationEvaluator(Evaluator):
 
     @collect_metrics
     def end_testing(
-        self, epoch_idx: int, step_idx: int, test_dataloaders: List[DataLoader] = None
+        self,
+        epoch_idx: int,
+        step_idx: int,
+        test_dataloaders: List[DataLoader] = None,
     ):
         epoch_metrics = {}
         for key, value in self.epoch_metrics.items():
