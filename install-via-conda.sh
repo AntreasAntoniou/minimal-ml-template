@@ -1,11 +1,22 @@
 if ! [ -x "$(command -v conda)" ]; then
-    wget https://repo.anaconda.com/miniconda/Miniconda3-py310_22.11.1-1-Linux-x86_64.sh -O ~/miniconda.sh
-    bash ~/miniconda.sh -b -p $HOME/miniconda
-    source $HOME/miniconda/etc/profile.d/conda.sh
-    conda init bash
-    conda init fish
-    source ~/.bashrc
+    echo 'Error: conda is not installed.' >&2
+    read -r -p "Proceed to install conda before installing the minimal-ml-template prerequesities? [y/N] " response
+    case "$response" in
+        [yY][eE][sS]|[yY]) 
+            wget https://repo.anaconda.com/miniconda/Miniconda3-py310_22.11.1-1-Linux-x86_64.sh -O ~/miniconda.sh
+            bash ~/miniconda.sh -b -p $HOME/miniconda
+            source $HOME/miniconda/etc/profile.d/conda.sh
+            conda init bash
+            conda init fish
+            source ~/.bashrc
+            ;;
+        *)
+            echo "Will not install conda. Exiting installation of prerequesities. Please install conda manually before retrying."
+            ;;
+    esac
+    
 fi
+
 
 conda create -n minimal-ml-template python=3.10 -y
 conda activate minimal-ml-template 
