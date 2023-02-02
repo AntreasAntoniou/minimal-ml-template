@@ -39,7 +39,7 @@ RESUME = "${resume}"
 wandb_args_config = builds(wandb.init, populate_full_signature=True)
 
 wandb_args_default = wandb_args_config(
-    project=os.environ["WANDB_PROJECT"],
+    project=os.environ.get("WANDB_PROJECT", "mlproject"),
     resume="allow",  # allow, True, False, must
     dir=CURRENT_EXPERIMENT_DIR,
     save_code=True,
