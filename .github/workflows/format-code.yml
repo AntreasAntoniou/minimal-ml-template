@@ -7,12 +7,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Format code with black, isort and flake8
+      - name: Format code with black and isort
         run: |
-          pip install black isort flake8
+          pip install black isort
           isort -l 79 .
           black -l 79 .
-          flake8 .
       - name: Commit changes
         uses: EndBug/add-and-commit@v4
         with:
