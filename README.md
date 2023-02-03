@@ -50,8 +50,9 @@ You can use a docker image to get a full installation of all relevant dependenci
 To install via docker:
 
 1. Install docker on your system, and start the docker daemon.
-2. docker pull docker pull ghcr.io/antreasantoniou/minimal-ml-template:latest
-3. 
+2. `docker pull docker pull ghcr.io/antreasantoniou/minimal-ml-template:latest`
+3. `docker run --gpus all --shm-size=<RAM-AVAILABLE> -it ghcr.io/antreasantoniou/minimal-ml-template:latest`. Replacing <RAM-AVAILABLE> with the amount of memory you want the docker container to utilize. 
+4. (Optional) If you wish to be able to modify the codebase and keep a copy of it available in the local filesystem, then first clone the repository to a local directory of your choosing and then simply use `docker run --gpus all -v path/to/local/repo/clone:/repo/ --shm-size=<RAM-AVAILABLE> -it ghcr.io/antreasantoniou/minimal-ml-template:latest` and `cd /repo/` to enter the linked directory, and then simply run `pip install -e .` to install the repo in a development mode so any changes you make will be reflected in the mlproject package.
 
 ## Setting up the relevant environment variables
 Before running any experiment, you must set the environment variables necessary for huggingface and wandb to work properly, as well as the environment variables for the necessary directories in which to store datasets, models and experiment tracking. 
