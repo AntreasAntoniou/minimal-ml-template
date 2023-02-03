@@ -17,6 +17,6 @@ jobs:
         with:
           committer_name: GitHub Actions
           committer_email: actions@github.com
-          message: "Format code with black and isort"
+          message: "Format code with black and isort :)"
           add: "."
           
