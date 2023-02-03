@@ -6,6 +6,8 @@ import torch.nn as nn
 from torchvision import transforms
 from torchvision.transforms import ToTensor
 
+from mlproject.decorators import configurable
+
 
 @dataclass
 class ModelAndTransform:
@@ -13,6 +15,7 @@ class ModelAndTransform:
     transform: Any
 
 
+@configurable
 def build_model(
     model_name: str = "google/vit-base-patch16-224-in21k",
     pretrained: bool = True,
@@ -28,7 +31,9 @@ def build_model(
     if not pretrained:
         model.init_weights()
 
-    transform = lambda image: feature_extractor(images=image, return_tensors="pt")
+    transform = lambda image: feature_extractor(
+        images=image, return_tensors="pt"
+    )
 
     class Convert1ChannelTo3Channel(nn.Module):
         def __init__(self):

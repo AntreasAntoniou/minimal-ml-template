@@ -459,6 +459,12 @@ AWS Arguments:
 ```
 </details>
 
+So, for example, to use bf16 mixed precision, one can do:
+
+```bash
+accelerate launch --mixed_precision=bf16 mlproject/run.py exp_name=test-bf16
+```
+
 ## Modify the experiment configuration from the command line
 Hydra-zen allows easy and quick configuration of your experiment via command line.
 
@@ -486,11 +492,80 @@ The template supports wandb by default. So assuming you fill in the environment 
 The template supports huggingface datasets and models by default. So assuming you fill in the environment variable template with your wandb key and source the file as explained in the section **Setting up the relevant environment variables**, you should be fine.
 
 ## Making any class and/or function configurable via Hydra-Zen
+This template uses hydra-zen to grab any function or class and convert them into a configurable dataclass object that can then be accessed via the command line interface to modify an experiment configuration.
 
-## Adding a new model
+Furthermore, I have implemented a python decorator that can add a configuration generator function to a given class or function. More specifically, the [`configurable`](mlproject/decorators.py#L9) decorator. 
 
-## Adding a new dataset
+### Making a class or function configurable
+To summarize, there are two different ways to make a class or function configurable:
+
+1. Using the `configurable` decorator:
+   
+```python
+@configurable
+def build_something(batch_size: int, num_layers: int):
+  return batch_size, num_layers
+
+build_something_config = build_something.build_config(populate_full_signature=True)
+```
+
+where `build_something_config` is the config of the function `build_something`. More specifically, an instantiation of the config would look like this:
+
+```python
+print(build_something_config(batch_size=32, num_layers=2))
+```
+
+And the output will look like:
+```bash
+Builds_build_something(_target_='__main__.build_something', batch_size=32, num_layers=2)
+```
+
+This essentially shows us the target function for which the configuration parameters are being collected.
+
+2. Using the builds function from hydra-zen:
+
+```python
+from hydra_zen import builds, instantiate
+    
+def build_something(batch_size: int, num_layers: int):
+    return batch_size, num_layers
+
+dummy_config = builds(build_something, populate_full_signature=True)
+
+```
+
+### Instantiating a function or class through its configuration object
+
+ So one could then instantiate the function or class that the configuration has been built for, using:
+
+```python
+from hydra_zen import builds, instantiate
+
+dummy_function_instantiation = instantiate(dummy_config)
+
+print(dummy_function_instantiation)
+```
+which returns:
+
+```bash
+(32, 2)
+```
+Which is ofcourse the output of the function instantiation.
 
 ## Adding a new callback
+The template has built in, a callback system which allows one to inject a small piece of code, referred to as a `callback` function at any stage of the training and evaluation process of their choosing. The reason for this is that it keeps the main boilerplate code clean and tidy, while allowing the flexibility of adding whatever functions one needs at any point in the training. 
+
+All the possible entry points can be found in the [callbacks module](mlproject/callbacks.py#L28), as well as the available/exposed data items and experiment variables that the functions can use. 
+
+So, when one wants to build a new function, they need to inherit from the `Callback` class and then implement one or more of the signature methods. For an example look at the [`UploadCheckpointsToHuggingFace`](mlproject/callbacks.py#L407) callback.
+
+## Adding a new model
+To add a new model simply modify the existing build_model function found in [models.py](mlproject/models.py#L18), or simply find the model you need from the HuggingFace model repository and add the relevant classes and model name to the build model function.
+
+## Adding a new dataset
+To add a new dataset simply modify the existing build_dataset function found in [data.py](mlproject/data.py#L9), or simply find the model you need from the HuggingFace dataset library and add the relevant classes and dataset name to the build dataset function.
+
 
 ## Running a kubernetes hyperparameter search
+
+TODO: Show a small tutorial on how to run a kubernetes hyperparameter search using the framework. 

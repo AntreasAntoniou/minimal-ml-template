@@ -46,12 +46,6 @@ wandb_args_default = wandb_args_config(
 )
 
 
-@hydrated_dataclass(target=timedelta)
-class TimerConfig:
-    seconds: int = 60
-    # minutes: int = 60
-
-
 HFModelUploadConfig = builds(
     UploadCheckpointsToHuggingFace, populate_full_signature=True
 )
@@ -77,9 +71,9 @@ accelerator_config = builds(Accelerator, populate_full_signature=True)
 
 cosine_learning_rate_scheduler_config = cosine_learning_rate_scheduler_config()
 
-model_config = builds(build_model, populate_full_signature=True)
+model_config = build_model.build_config(populate_full_signature=True)
 
-dataset_config = builds(build_dataset, populate_full_signature=True)
+dataset_config = build_dataset.build_config(populate_full_signature=True)
 
 dataloader_config = builds(
     DataLoader, dataset=None, populate_full_signature=True

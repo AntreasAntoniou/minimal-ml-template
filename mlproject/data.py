@@ -1,6 +1,11 @@
 from datasets import load_dataset
 
+from mlproject.decorators import configurable
 
+configurable
+
+
+@configurable
 def build_dataset(
     dataset_name: str,
     data_dir: str,

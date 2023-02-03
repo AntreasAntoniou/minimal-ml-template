@@ -1,14 +1,18 @@
 import functools
 from functools import wraps
 from typing import Any, Callable
-import torch
 
+import torch
 from hydra_zen import builds, instantiate
 
 
 def configurable(func: Callable) -> Callable:
     func.__configurable__ = True
-    func.default_config = builds(func, populate_full_signature=True)
+
+    def build_config(**kwargs):
+        return builds(func, **kwargs)
+
+    setattr(func, "build_config", build_config)
     return func
 
 
@@ -55,53 +59,25 @@ def collect_metrics(func: Callable) -> Callable:
     return wrapper_collect_metrics
 
 
-# def create_decorator(
-#     trigger_callback_signatures_before, trigger_callback_signatures_before
-# ):
-#     def decorator(function):
-#         @wraps(function)
-#         def wrapper(*args, **kwargs):
-#             funny_stuff()
-#             something_with_argument(argument)
-#             retval = function(*args, **kwargs)
-#             more_funny_stuff()
-#             return retval
-
-#         return wrapper
-
-#     return decorator
-
-
-def test_wrapper(phase_name: str):
-    def wrapper(func):
-        print(f"test_wrapper {phase_name}")
-        return func
-
-    return wrapper
-
-
 if __name__ == "__main__":
 
-    @test_wrapper(phase_name="train")
-    def test_method(input_dict: dict):
-        for key, value in input_dict.items():
-            print(f"{key}: {value}")
+    @configurable
+    def build_something(batch_size: int, num_layers: int):
+        return batch_size, num_layers
 
-    # @configurable
-    # class DummyObject(object):
-    #     def __init__(self, weight_decay: float, random_crap: str):
-    #         self.weight_decay = weight_decay
-    #         self.random_crap = random_crap
+    build_something_config = build_something.build_config(
+        populate_full_signature=True
+    )
+    dummy_config = build_something_config(batch_size=32, num_layers=2)
+    print(dummy_config)
 
-    #     def __repr__(self) -> str:
-    #         return f"DummyObject(weight_decay={self.weight_decay}, random_crap={self.random_crap})"
+    from hydra_zen import builds, instantiate
 
-    # module = DummyObject(0.1, "hello")
+    def build_something(batch_size: int, num_layers: int):
+        return batch_size, num_layers
 
-    # print(check_if_configurable(module))
+    dummy_config = builds(build_something, populate_full_signature=True)
 
-    # module_from_config = instantiate(
-    #     module.default_config, weight_decay=0.2, random_crap="world"
-    # )
+    dummy_function_instantiation = instantiate(dummy_config)
 
-    # print(check_if_configurable(module_from_config), module_from_config)
+    print(dummy_function_instantiation)
