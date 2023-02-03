@@ -10,7 +10,9 @@ from rich.traceback import install
 from rich.tree import Tree
 
 
-def get_logger(name=__name__, set_default_rich_handler=False) -> logging.Logger:
+def get_logger(
+    name=__name__, set_default_rich_handler=False
+) -> logging.Logger:
     """Initializes multi-GPU-friendly python command line logger."""
 
     logger = logging.getLogger(name)

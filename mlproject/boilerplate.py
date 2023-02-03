@@ -1,22 +1,22 @@
 import copy
+import pathlib
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
-import pathlib
 from tabnanny import check
 from typing import Any, Dict, List, Optional, Union
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from accelerate import Accelerator
-from accelerate import DistributedDataParallelKwargs
+from accelerate import Accelerator, DistributedDataParallelKwargs
+from torch.utils.data import DataLoader
+from tqdm import tqdm
+
 from mlproject.callbacks import Callback, CallbackHandler, Interval
 from mlproject.evaluators import ClassificationEvaluator, Evaluator
 from mlproject.trainers import ClassificationTrainer, Trainer
 from mlproject.utils import get_logger
-from torch.utils.data import DataLoader
-from tqdm import tqdm
 
 logger = get_logger(__name__)
 
@@ -199,7 +199,6 @@ class Learner(nn.Module):
                 self.load_checkpoint(checkpoint_path=checkpoint_path)
 
         if print_model_parameters:
-
             for key, value in self.named_parameters():
                 logger.info(
                     f"Parameter {key} -> {value.shape} requires grad {value.requires_grad}"
@@ -273,7 +272,9 @@ class Learner(nn.Module):
 
     def start_training(self, train_dataloader: DataLoader):
         self.callback_handler.on_train_start(
-            experiment=self, model=self.model, train_dataloader=train_dataloader
+            experiment=self,
+            model=self.model,
+            train_dataloader=train_dataloader,
         )
 
         for trainer in self.trainers:
@@ -287,7 +288,9 @@ class Learner(nn.Module):
 
     def end_training(self, train_dataloader: DataLoader):
         self.callback_handler.on_train_end(
-            experiment=self, model=self.model, train_dataloader=train_dataloader
+            experiment=self,
+            model=self.model,
+            train_dataloader=train_dataloader,
         )
 
         for trainer in self.trainers:
@@ -332,7 +335,9 @@ class Learner(nn.Module):
 
     def start_testing(self, test_dataloaders: List[DataLoader]):
         self.callback_handler.on_testing_start(
-            experiment=self, model=self.model, test_dataloaders=test_dataloaders
+            experiment=self,
+            model=self.model,
+            test_dataloaders=test_dataloaders,
         )
 
         for evaluator in self.evaluators:
@@ -346,7 +351,9 @@ class Learner(nn.Module):
 
     def end_testing(self, test_dataloaders: List[DataLoader]):
         self.callback_handler.on_testing_end(
-            experiment=self, model=self.model, test_dataloaders=test_dataloaders
+            experiment=self,
+            model=self.model,
+            test_dataloaders=test_dataloaders,
         )
 
         for evaluator in self.evaluators:
@@ -368,7 +375,6 @@ class Learner(nn.Module):
         self._testing_loop(test_dataloaders=test_dataloaders)
 
     def _validation_loop(self, val_dataloaders: List[DataLoader] = None):
-
         if val_dataloaders is None:
             val_dataloaders = self.val_dataloaders
 
@@ -393,7 +399,6 @@ class Learner(nn.Module):
             self.end_validation(val_dataloaders=val_dataloaders)
 
     def _testing_loop(self, test_dataloaders: List[DataLoader] = None):
-
         if test_dataloaders is None:
             test_dataloaders = self.test_dataloaders
 
@@ -439,14 +444,14 @@ class Learner(nn.Module):
                         self._validation_loop()
 
                     for batch_idx, batch in enumerate(train_dataloader):
-
                         self.training_step(
                             model=self.model, batch=batch, batch_idx=batch_idx
                         )
 
                         if (
                             self.eval_mode == Interval.STEP
-                            and self.step_idx % self.evaluate_every_n_steps == 0
+                            and self.step_idx % self.evaluate_every_n_steps
+                            == 0
                         ):
                             self._validation_loop()
 

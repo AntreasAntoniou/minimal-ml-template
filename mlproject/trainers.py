@@ -3,10 +3,10 @@ from typing import Any, Dict, Iterator, Tuple
 
 import torch
 import torch.nn.functional as F
-from torch.utils.data import DataLoader
+import wandb
 from accelerate import Accelerator
 from hydra_zen import instantiate
-import wandb
+from torch.utils.data import DataLoader
 
 from mlproject.callbacks import Interval
 
@@ -101,9 +101,11 @@ class ClassificationTrainer(Trainer):
 
     @collect_metrics
     def start_training(
-        self, epoch_idx: int, step_idx: int, train_dataloader: DataLoader = None
+        self,
+        epoch_idx: int,
+        step_idx: int,
+        train_dataloader: DataLoader = None,
     ):
-
         self.epoch_metrics = {}
         return TrainerOutput(
             opt_loss=None, step_idx=step_idx, metrics={}, phase_name="training"
@@ -111,7 +113,10 @@ class ClassificationTrainer(Trainer):
 
     @collect_metrics
     def end_training(
-        self, epoch_idx: int, step_idx: int, train_dataloader: DataLoader = None
+        self,
+        epoch_idx: int,
+        step_idx: int,
+        train_dataloader: DataLoader = None,
     ):
         epoch_metrics = {}
         for key, value in self.epoch_metrics.items():

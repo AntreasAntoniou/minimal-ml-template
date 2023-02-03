@@ -4,12 +4,11 @@ from typing import Any, Iterator, List, Tuple
 
 import torch
 import torch.nn.functional as F
-from torch.utils.data import DataLoader
+import wandb
 from accelerate import Accelerator
-
 from attr import field
 from hydra_zen import instantiate
-import wandb
+from torch.utils.data import DataLoader
 
 from .decorators import collect_metrics
 from .utils import get_logger
