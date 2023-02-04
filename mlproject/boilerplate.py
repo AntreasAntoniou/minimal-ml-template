@@ -199,7 +199,6 @@ class Learner(nn.Module):
                 self.load_checkpoint(checkpoint_path=checkpoint_path)
 
         if print_model_parameters:
-
             for key, value in self.named_parameters():
                 logger.info(
                     f"Parameter {key} -> {value.shape} requires grad {value.requires_grad}"
@@ -376,7 +375,6 @@ class Learner(nn.Module):
         self._testing_loop(test_dataloaders=test_dataloaders)
 
     def _validation_loop(self, val_dataloaders: List[DataLoader] = None):
-
         if val_dataloaders is None:
             val_dataloaders = self.val_dataloaders
 
@@ -401,7 +399,6 @@ class Learner(nn.Module):
             self.end_validation(val_dataloaders=val_dataloaders)
 
     def _testing_loop(self, test_dataloaders: List[DataLoader] = None):
-
         if test_dataloaders is None:
             test_dataloaders = self.test_dataloaders
 
@@ -447,7 +444,6 @@ class Learner(nn.Module):
                         self._validation_loop()
 
                     for batch_idx, batch in enumerate(train_dataloader):
-
                         self.training_step(
                             model=self.model, batch=batch, batch_idx=batch_idx
                         )

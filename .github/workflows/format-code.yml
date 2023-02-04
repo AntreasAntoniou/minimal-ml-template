@@ -1,0 +1,22 @@
+name: Format code
+
+on: push
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Format code with black and isort
+        run: |
+          pip install black isort
+          isort -l 79 .
+          black -l 79 .
+      - name: Commit changes
+        uses: EndBug/add-and-commit@v9
+        with:
+          committer_name: GitHub Actions
+          committer_email: actions@github.com
+          message: "Format code with black and isort :)"
+          add: "."
+          

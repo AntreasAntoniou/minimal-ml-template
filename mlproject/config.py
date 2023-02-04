@@ -103,7 +103,6 @@ default_callbacks = dict(hf_uploader=hf_upload)
 
 @dataclass
 class BaseConfig:
-
     # Must be passed at command line -- neccesary arguments
 
     exp_name: str = MISSING
@@ -164,7 +163,6 @@ class BaseConfig:
 
 
 def collect_config_store():
-
     config_store = ConfigStore.instance()
     ###################################################################################
     vit_model_config = model_config(

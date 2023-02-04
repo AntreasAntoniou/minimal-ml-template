@@ -106,7 +106,6 @@ class ClassificationTrainer(Trainer):
         step_idx: int,
         train_dataloader: DataLoader = None,
     ):
-
         self.epoch_metrics = {}
         return TrainerOutput(
             opt_loss=None, step_idx=step_idx, metrics={}, phase_name="training"
