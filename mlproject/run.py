@@ -34,15 +34,16 @@ from huggingface_hub import (
     snapshot_download,
 )
 from hydra_zen import instantiate
+from omegaconf import OmegaConf
+from torch import nn
+from torch.utils.data import Dataset
+
 from mlproject.boilerplate import Learner
 from mlproject.callbacks import Callback
 from mlproject.config import BaseConfig, collect_config_store
 from mlproject.evaluators import ClassificationEvaluator
 from mlproject.trainers import ClassificationTrainer
 from mlproject.utils import get_logger, pretty_config, set_seed
-from omegaconf import OmegaConf
-from torch import nn
-from torch.utils.data import Dataset
 
 config_store = collect_config_store()
 
@@ -58,9 +59,9 @@ def instantiate_callbacks(callback_dict: dict) -> List[Callback]:
 
 
 def create_hf_model_repo_and_download_maybe(cfg: BaseConfig):
-    from huggingface_hub import HfApi
     import orjson
     import yaml
+    from huggingface_hub import HfApi
 
     if (
         cfg.download_checkpoint_with_name is not None
@@ -286,7 +287,9 @@ def upload_code_to_wandb(code_dir: Union[pathlib.Path, str]):
 @hydra.main(config_path=None, config_name="config", version_base=None)
 def run(cfg: BaseConfig) -> None:
     wandb_args = {
-        key: value for key, value in cfg.wandb_args.items() if key != "_target_"
+        key: value
+        for key, value in cfg.wandb_args.items()
+        if key != "_target_"
     }
     ckpt_path, repo_url = create_hf_model_repo_and_download_maybe(cfg)
     config_dict = OmegaConf.to_container(cfg, resolve=True)

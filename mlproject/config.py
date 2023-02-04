@@ -3,16 +3,22 @@ import os
 from dataclasses import MISSING, dataclass, field
 from datetime import timedelta
 from typing import Any, Dict, List, Optional, Union
-from omegaconf import OmegaConf
 
+import timm
 import torch
 import wandb
-import timm
-from timm.scheduler import CosineLRScheduler
-from hydra.core.config_store import ConfigStore
-from hydra_zen import MISSING, ZenField, builds, hydrated_dataclass, make_config
-from torch.utils.data import DataLoader
 from accelerate import Accelerator
+from hydra.core.config_store import ConfigStore
+from hydra_zen import (
+    MISSING,
+    ZenField,
+    builds,
+    hydrated_dataclass,
+    make_config,
+)
+from omegaconf import OmegaConf
+from timm.scheduler import CosineLRScheduler
+from torch.utils.data import DataLoader
 
 from mlproject.boilerplate import Learner
 from mlproject.callbacks import UploadCheckpointsToHuggingFace

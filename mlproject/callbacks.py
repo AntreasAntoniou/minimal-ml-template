@@ -1,7 +1,7 @@
 import os
+import threading
 from dataclasses import dataclass
 from pathlib import Path
-import threading
 from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
@@ -12,7 +12,6 @@ import wandb
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader
 from tqdm.rich import tqdm
-
 
 from .utils import get_logger
 

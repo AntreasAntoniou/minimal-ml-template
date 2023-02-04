@@ -1,10 +1,11 @@
 import copy
+import datetime
 import itertools
 import os
 from pathlib import Path
 from typing import List
+
 from rich import print
-import datetime
 
 
 def get_scripts(exp_name: str, batch_sizes: List[int]):
@@ -21,7 +22,8 @@ if __name__ == "__main__":
     from bwatchcompute.kubernetes.job import Job
 
     script_list = get_scripts(
-        exp_name=os.getenv("EXPERIMENT_NAME_PREFIX"), batch_sizes=[75, 150, 300]
+        exp_name=os.getenv("EXPERIMENT_NAME_PREFIX"),
+        batch_sizes=[75, 150, 300],
     )
     # write a one liner that picks up date and time and converts them into a number
     datetime_seed = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
@@ -30,7 +32,9 @@ if __name__ == "__main__":
         name=f"{datetime_seed}-{os.getenv('EXPERIMENT_NAME_PREFIX')}",
         script_list=script_list,
         docker_image_path=os.getenv("DOCKER_IMAGE_PATH"),
-        secret_variables={os.getenv("EXPERIMENT_NAME_PREFIX"): "WANDB_API_KEY"},
+        secret_variables={
+            os.getenv("EXPERIMENT_NAME_PREFIX"): "WANDB_API_KEY"
+        },
         environment_variables={
             "HF_TOKEN": os.getenv("HF_TOKEN"),
             "HF_USERNAME": os.getenv("HF_USERNAME"),
