@@ -1,5 +1,10 @@
 # minimal-stateless-ml-template
 
+![image](https://img.shields.io/badge/Python-3776AB.svg?style=for-the-badge&logo=Python&logoColor=white)
+![image](https://img.shields.io/badge/PyTorch-EE4C2C.svg?style=for-the-badge&logo=PyTorch&logoColor=white)
+<img src="https://github.com/mit-ll-responsible-ai/hydra-zen/blob/main/brand/Hydra-Zen_logo_full.svg" alt= “” height="32">
+<img src="https://huggingface.co/front/assets/huggingface_logo-noborder.svg" alt= “” height="32">
+
 This repo implements a **minimal** machine learning template, that is fully featured for most of the things a machine learning project might need. The most important parts that set this repo apart from the rest are:
 
 1. It is **stateless**. Any given experiment ran using this template, will, automatically and periodically stores the model weights and configuration to [HuggingFace Hub](https://huggingface.co/docs/hub/models-the-hub) and [wandb](https://wandb.ai/site) respectively. As a result, if your machine dies or job exits, and you resume on another machine, the code will automatically locate and download the previous history and continue from where it left off. This makes this repo very useful when using spot instances, or using schedulers like slurm and kubernetes. 
@@ -570,3 +575,28 @@ To add a new dataset simply modify the existing build_dataset function found in 
 ## Running a kubernetes hyperparameter search
 
 TODO: Show a small tutorial on how to run a kubernetes hyperparameter search using the framework. 
+
+
+References: 
+
+@incollection{NEURIPS2019_9015,
+title = {PyTorch: An Imperative Style, High-Performance Deep Learning Library},
+author = {Paszke, Adam and Gross, Sam and Massa, Francisco and Lerer, Adam and Bradbury, James and Chanan, Gregory and Killeen, Trevor and Lin, Zeming and Gimelshein, Natalia and Antiga, Luca and Desmaison, Alban and Kopf, Andreas and Yang, Edward and DeVito, Zachary and Raison, Martin and Tejani, Alykhan and Chilamkurthy, Sasank and Steiner, Benoit and Fang, Lu and Bai, Junjie and Chintala, Soumith},
+booktitle = {Advances in Neural Information Processing Systems 32},
+pages = {8024--8035},
+year = {2019},
+publisher = {Curran Associates, Inc.},
+url = {http://papers.neurips.cc/paper/9015-pytorch-an-imperative-style-high-performance-deep-learning-library.pdf}
+}
+
+@article{soklaski2022tools,
+  title={Tools and Practices for Responsible AI Engineering},
+  author={Soklaski, Ryan and Goodwin, Justin and Brown, Olivia and Yee, Michael and Matterer, Jason},
+  journal={arXiv preprint arXiv:2201.05647},
+  year={2022}
+}
+
+
+
+
+
