@@ -144,9 +144,9 @@ class Learner(nn.Module):
 
         # use if you want to debug unused parameter errors in DDP
         self.accelerator = Accelerator(
-            kwargs_handlers=[
-                DistributedDataParallelKwargs(find_unused_parameters=True)
-            ]
+            # kwargs_handlers=[
+            #     DistributedDataParallelKwargs(find_unused_parameters=True)
+            # ]
         )
 
         self.model = self.model.to(self.accelerator.device)
