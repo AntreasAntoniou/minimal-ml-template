@@ -153,22 +153,26 @@ class Learner(nn.Module):
         self.model, self.train_dataloader = self.accelerator.prepare(
             self.model, self.train_dataloader
         )
-        
+
         for trainer in self.trainers:
             trainer.optimizer = self.accelerator.prepare(
                 trainer.get_optimizer()
             )
             if trainer.scheduler is not None:
                 trainer.scheduler = self.accelerator.prepare(trainer.scheduler)
-            
+
         if self.val_dataloaders is not None:
             for i in range(len(self.val_dataloaders)):
-                self.val_dataloaders[i] = self.accelerator.prepare(self.val_dataloaders[i])
-                
+                self.val_dataloaders[i] = self.accelerator.prepare(
+                    self.val_dataloaders[i]
+                )
+
         if self.test_dataloaders is not None:
             for i in range(len(self.test_dataloaders)):
-                self.test_dataloaders[i] = self.accelerator.prepare(self.test_dataloaders[i])
-                
+                self.test_dataloaders[i] = self.accelerator.prepare(
+                    self.test_dataloaders[i]
+                )
+
         if isinstance(resume, str):
             checkpoint_path = Path(resume)
             if not checkpoint_path.exists():
