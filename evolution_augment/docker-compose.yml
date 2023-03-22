@@ -6,6 +6,7 @@ services:
     build:
       context: ./
       dockerfile: Dockerfile
+      network: host
       args:
         USER: $USER
         UID: $DOCKER_UID
@@ -21,6 +22,10 @@ services:
               count: 1
               capabilities: [gpu]
     entrypoint: /bin/bash
+    environment:
+      - WANDB_API_KEY=${WANDB_API_KEY}
+      - WANDB_ENTITY=${WANDB_ENTITY}
+      - WANDB_PROJECT=${WANDB_PROJECT}
     volumes:
       - ${PWD}/../:/src:rw
       - $DATASETS_CACHE_DIR:/data:rw
