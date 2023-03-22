@@ -1,0 +1,26 @@
+version: "3.9"
+
+
+services:
+  evolution_augment:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+      args:
+        USER: $USER
+        UID: $DOCKER_UID
+        GID: $DOCKER_GID
+    image: srihari/evolution_augment:dev
+    user: $DOCKER_USER
+    shm_size: 10gb
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    entrypoint: /bin/bash
+    volumes:
+      - ${PWD}/../:/src:rw
+      - $DATASETS_CACHE_DIR:/data:rw
