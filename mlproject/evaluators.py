@@ -57,7 +57,9 @@ class ClassificationEvaluator(Evaluator):
         accelerator: Accelerator,
     ):
         model.eval()
-        logits = model(batch["pixel_values"]).logits
+        # logits = model(batch["pixel_values"]).logits
+        logits = model(batch["pixel_values"])
+
         accuracy = (logits.argmax(dim=-1) == batch["labels"]).float().mean()
         loss = F.cross_entropy(logits, batch["labels"]).detach()
         metrics = {"accuracy": accuracy, "loss": loss}

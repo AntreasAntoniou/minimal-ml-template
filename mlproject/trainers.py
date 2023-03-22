@@ -72,7 +72,9 @@ class ClassificationTrainer(Trainer):
     ) -> TrainerOutput:
         model.train()
         self.optimizer.zero_grad()
-        logits = model(batch["pixel_values"]).logits
+        # logits = model(batch["pixel_values"]).logits
+        logits = model(batch["pixel_values"])
+
         accuracy = (logits.argmax(dim=-1) == batch["labels"]).float().mean()
         opt_loss = F.cross_entropy(logits, batch["labels"])
         loss = opt_loss.detach()
