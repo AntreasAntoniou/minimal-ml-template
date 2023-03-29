@@ -67,7 +67,7 @@ class WideBasic(nn.Module):
         return out
 
 
-@ModelFactory.register(name='WideResNet')
+@ModelFactory.register()
 class WideResNet(nn.Module):
 
     def __init__(self, depth, widen_factor, dropout_rate, num_classes):
