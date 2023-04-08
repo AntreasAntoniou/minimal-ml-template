@@ -4,11 +4,19 @@ import torch
 import torch
 import datasets
 from torchvision import transforms
+from torch.utils.data.distributed import DistributedSampler
 
 from mlproject.utils import get_logger
 
 from evolution_augment.transforms import CutoutDefault
 from evolution_augment.dataloaders import DataloaderFactory
+
+if 'XRT_TPU_CONFIG' in os.environ:
+    print('XLA config detected')
+    is_xla = True
+    import torch_xla.core.xla_model as xm
+else:
+    is_xla = False
 
 
 class Transforms:
@@ -83,13 +91,22 @@ class _CifarBase:
             cache_dir=os.getenv('DATASETS_CACHE_DIR'))
         dataset = dataset.with_transform(self._transform_example)
 
+        sampler = None
+        if is_xla:
+            print('Using DistributedSampler')
+            sampler = DistributedSampler(dataset=dataset,
+                                         num_replicas=xm.xrt_world_size(),
+                                         rank=xm.get_ordinal(),
+                                         shuffle=True)
+
         dataloader = torch.utils.data.DataLoader(
             dataset,
             collate_fn=self._collate_fn,
             batch_size=self.config['batch_size'],
-            shuffle=True if is_training else False,
+            shuffle=True if (is_training and (not is_xla)) else False,
             num_workers=self.config['num_workers'],
-            pin_memory=True,
+            pin_memory=False if is_xla else True,
+            sampler=sampler,
             drop_last=True if is_training else False)
         return dataloader
 
